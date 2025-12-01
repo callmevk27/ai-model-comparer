@@ -1,0 +1,54 @@
+/* frontend/styles.css */
+
+body {
+    font-family: Arial, sans-serif;
+    background: #0f172a;
+    color: #e5e7eb;
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    max-width: 800px;
+    margin: 40px auto;
+    background: #111827;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+h1,
+h2,
+h3 {
+    color: #fbbf24;
+}
+
+textarea {
+    width: 100%;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #4b5563;
+    margin-top: 8px;
+    margin-bottom: 16px;
+    resize: vertical;
+}
+
+button {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #2563eb;
+}
+
+pre {
+    background: #020617;
+    padding: 10px;
+    border-radius: 6px;
+    white-space: pre-wrap;
+}
