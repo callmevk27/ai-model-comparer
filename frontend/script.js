@@ -1,20 +1,24 @@
-// frontend/script.js
-
-const askBtn = document.getElementById("askBtn");
 const questionInput = document.getElementById("question");
-const answerBox = document.getElementById("answer");
-const debugBox = document.getElementById("debug");
+const sendBtn = document.getElementById("sendBtn");
+const statusText = document.getElementById("statusText");
+const resultCard = document.getElementById("resultCard");
+const bestAnswerEl = document.getElementById("bestAnswer");
+const chosenModelEl = document.getElementById("chosenModel");
 
-askBtn.addEventListener("click", async () => {
+async function askJudge() {
     const question = questionInput.value.trim();
 
     if (!question) {
-        answerBox.textContent = "Please type a question first.";
+        alert("Please type a question first.");
         return;
     }
 
-    answerBox.textContent = "Thinking...";
-    debugBox.textContent = "";
+    // UI: loading state
+    sendBtn.disabled = true;
+    statusText.textContent = "Thinking…";
+    bestAnswerEl.textContent = "";
+    chosenModelEl.textContent = "";
+    resultCard.classList.add("hidden");
 
     try {
         const res = await fetch("http://localhost:3000/api/chat", {
@@ -27,10 +31,34 @@ askBtn.addEventListener("click", async () => {
 
         const data = await res.json();
 
-        answerBox.textContent = data.bestAnswer || "No answer returned.";
-        debugBox.textContent = JSON.stringify(data, null, 2);
+        if (!res.ok) {
+            throw new Error(data.error || "Something went wrong.");
+        }
+
+        bestAnswerEl.textContent = data.bestAnswer || "No answer returned.";
+        chosenModelEl.textContent =
+            (data.chosenModel || "Unknown")
+                .replace("gpt-4o-mini", "GPT")
+                .replace("gemini-2.5-flash", "Gemini");
+
+        resultCard.classList.remove("hidden");
+        statusText.textContent = "";
     } catch (err) {
-        answerBox.textContent = "Error talking to backend. Is it running?";
         console.error(err);
+        statusText.textContent = "Error: Could not get an answer from the server.";
+        resultCard.classList.add("hidden");
+    } finally {
+        sendBtn.disabled = false;
+    }
+}
+
+// Arrow button click
+sendBtn.addEventListener("click", askJudge);
+
+// Optional: Ctrl+Enter submits
+questionInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        askJudge();
     }
 });

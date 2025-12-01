@@ -3,24 +3,49 @@
 
 <head>
     <meta charset="UTF-8" />
-    <title>AI Model Comparer</title>
+    <title>AI Model Judge</title>
     <link rel="stylesheet" href="styles.css" />
 </head>
 
 <body>
-    <div class="container">
-        <h1>AI Model Comparer (Learning Project)</h1>
+    <div class="page">
+        <header class="header">
+            <h1>AI Model Judge</h1>
+            <p class="subtitle">Ask once. Let GPT and Gemini compete.</p>
+        </header>
 
-        <label for="question">Ask your question:</label>
-        <textarea id="question" rows="4" placeholder="Type your question here"></textarea>
+        <main class="main">
+            <!-- Input card -->
+            <section class="card">
+                <label for="question" class="label">Ask your question</label>
 
-<button id="askBtn">Compare AI Models</button>
+                <div class="input-wrapper">
+                    <textarea id="question" rows="3" class="textarea"
+                        placeholder="Example: Explain AI in very simple words."></textarea>
 
-        <h2>Best Answer</h2>
-        <pre id="answer"></pre>
+                    <button id="sendBtn" class="send-btn" aria-label="Ask AI Judge">
+                        ➜
+                    </button>
+                </div>
 
-        <h3>Debug info (models considered)</h3>
-        <pre id="debug"></pre>
+                <p id="statusText" class="status"></p>
+            </section>
+
+            <!-- Result card -->
+            <section id="resultCard" class="card result-card hidden">
+                <h2 class="result-title">Best answer</h2>
+                <p id="bestAnswer" class="answer-text"></p>
+
+                <div class="meta-row">
+                    <span class="meta-label">Chosen model</span>
+                    <span id="chosenModel" class="meta-badge"></span>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <span>Built as a learning project – HTML, CSS, JS + Node, GPT, Gemini.</span>
+        </footer>
     </div>
 
     <script src="script.js"></script>
