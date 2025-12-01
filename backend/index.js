@@ -1,8 +1,12 @@
 // backend/index.js
-console.log(">>> USING NEW INDEX.JS V4 (GPT + GEMINI + JUDGE + MISSING HANDLING) <<<");
+console.log(
+    ">>> USING INDEX.JS WITH AUTH + GPT + GEMINI + JUDGE <<<"
+);
 
 const express = require("express");
 const cors = require("cors");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 const pool = require("./db");
 require("dotenv").config({ path: "../.env" });
 
@@ -12,9 +16,121 @@ const PORT = 3000;
 app.use(cors());
 app.use(express.json());
 
+const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_key";
+
 // -------- HEALTH CHECK ----------
 app.get("/api/health", (req, res) => {
     res.json({ status: "ok", message: "Backend is running!" });
+});
+
+// -------- AUTH MIDDLEWARE ----------
+function authMiddleware(req, res, next) {
+    const authHeader = req.headers["authorization"] || "";
+    const token = authHeader.startsWith("Bearer ")
+        ? authHeader.slice(7)
+        : null;
+
+    if (!token) {
+        return res.status(401).json({ error: "No token provided." });
+    }
+
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        req.userId = decoded.userId;
+        next();
+    } catch (err) {
+        console.error("JWT verify error:", err);
+        return res.status(401).json({ error: "Invalid or expired token." });
+    }
+}
+
+// -------- SIGNUP ----------
+app.post("/api/signup", async (req, res) => {
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+        return res
+            .status(400)
+            .json({ error: "Name, email, and password are required." });
+    }
+
+    try {
+        // Check if user already exists
+        const [rows] = await pool.execute(
+            "SELECT id FROM users WHERE email = ?",
+            [email]
+        );
+
+        if (rows.length > 0) {
+            return res
+                .status(409)
+                .json({ error: "User with this email already exists." });
+        }
+
+        const passwordHash = await bcrypt.hash(password, 10);
+
+        const [result] = await pool.execute(
+            "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
+            [name, email, passwordHash]
+        );
+
+        return res.json({
+            success: true,
+            message: "Account created successfully. You can now log in.",
+            userId: result.insertId,
+        });
+    } catch (err) {
+        console.error("Signup error:", err);
+        return res.status(500).json({ error: "Server error during signup." });
+    }
+});
+
+// -------- LOGIN ----------
+app.post("/api/login", async (req, res) => {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+        return res
+            .status(400)
+            .json({ error: "Email and password are required." });
+    }
+
+    try {
+        const [rows] = await pool.execute(
+            "SELECT id, name, email, password_hash FROM users WHERE email = ?",
+            [email]
+        );
+
+        if (rows.length === 0) {
+            return res.status(401).json({ error: "Invalid email or password." });
+        }
+
+        const user = rows[0];
+        const isMatch = await bcrypt.compare(password, user.password_hash);
+
+        if (!isMatch) {
+            return res.status(401).json({ error: "Invalid email or password." });
+        }
+
+        const token = jwt.sign(
+            { userId: user.id },
+            JWT_SECRET,
+            { expiresIn: "7d" }
+        );
+
+        return res.json({
+            success: true,
+            token,
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+            },
+        });
+    } catch (err) {
+        console.error("Login error:", err);
+        return res.status(500).json({ error: "Server error during login." });
+    }
 });
 
 // -------- GPT HELPER ----------
@@ -31,7 +147,7 @@ async function getGptAnswer(question) {
             "Content-Type": "application/json",
         },
         body: JSON.stringify({
-            model: "gpt-4o-mini", // or another model you have access to
+            model: "gpt-4o-mini",
             messages: [
                 { role: "system", content: "You are a helpful assistant." },
                 { role: "user", content: question },
@@ -100,7 +216,7 @@ function hasRealAnswer(answer) {
     return true;
 }
 
-// -------- JUDGE HELPER (handles missing answers) ----------
+// -------- JUDGE HELPER ----------
 async function judgeBestAnswer(question, gptAnswer, geminiAnswer) {
     const apiKey = process.env.OPENAI_API_KEY;
 
@@ -139,7 +255,6 @@ async function judgeBestAnswer(question, gptAnswer, geminiAnswer) {
 
     // CASE 4: Both answered → use GPT as judge
     if (!apiKey) {
-        // can't call judge model, so just pick GPT by default
         return {
             bestAnswer: gptAnswer,
             model: "gpt-4o-mini",
@@ -220,13 +335,15 @@ Reply ONLY as pure JSON with this structure (no extra text):
     };
 }
 
-// -------- MAIN CHAT ----------
-app.post("/api/chat", async (req, res) => {
+// -------- MAIN CHAT (PROTECTED) ----------
+app.post("/api/chat", authMiddleware, async (req, res) => {
     const { question } = req.body;
 
     console.log(
         ">>> /api/chat REAL hit at",
         new Date().toISOString(),
+        "user:",
+        req.userId,
         "question:",
         question
     );
@@ -242,20 +359,21 @@ app.post("/api/chat", async (req, res) => {
             getGeminiAnswer(question),
         ]);
 
-        // 2) Let GPT act as judge between them (with missing-answer logic)
+        // 2) Judge between them
         const { bestAnswer, model, judgeExplanation } = await judgeBestAnswer(
             question,
             gpt,
             gemini
         );
 
-        // 3) Save best answer in DB (DB: model, table: conversations)
+        // 3) Save best answer in DB
         await pool.execute(
-            "INSERT INTO conversations (question, best_answer, model_used) VALUES (?, ?, ?)",
-            [question, bestAnswer, model]
+            "INSERT INTO conversations (user_id, question, best_answer, model_used) VALUES (?, ?, ?, ?)",
+            [req.userId, question, bestAnswer, model]
         );
 
-        // 4) Send full info back
+
+        // 4) Respond
         res.json({
             originalQuestion: question,
             bestAnswer,
@@ -271,6 +389,25 @@ app.post("/api/chat", async (req, res) => {
         res.status(500).json({ error: "Server error" });
     }
 });
+// -------- HISTORY (LATEST CONVERSATIONS FOR LOGGED-IN USER) ----------
+app.get("/api/history", authMiddleware, async (req, res) => {
+    try {
+        const [rows] = await pool.execute(
+            `SELECT question, best_answer, model_used, created_at
+       FROM conversations
+       WHERE user_id = ?
+       ORDER BY created_at DESC
+       LIMIT 20`,
+            [req.userId]
+        );
+
+        res.json({ items: rows });
+    } catch (err) {
+        console.error("Error in /api/history:", err);
+        res.status(500).json({ error: "Server error while loading history." });
+    }
+});
+
 
 // -------- START SERVER ----------
 app.listen(PORT, () => {

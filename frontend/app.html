@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>AI Model Judge – App</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body class="auth-body app-body">
+    <div class="app-layout">
+        <!-- Top bar like ChatGPT -->
+        <header class="app-header">
+            <div class="app-brand">
+                <h1>AI Model Judge</h1>
+                <p class="subtitle">
+                    Ask a question.You get the best answer.
+                </p>
+            </div>
+
+            <div class="user-box">
+                <div class="user-text">
+                    <span class="user-label">Logged in as</span>
+                    <span id="userName" class="user-name">User</span>
+                </div>
+                <button id="logoutBtn" class="logout-btn btn-base">Logout</button>
+            </div>
+        </header>
+
+        <!-- Main two-column layout -->
+        <main class="app-main">
+            <!-- LEFT: Chat panel -->
+            <section class="card chat-panel">
+                <div class="chat-scroll">
+                    <!-- AI answer bubble -->
+                    <section id="resultCard" class="chat-message ai-message hidden">
+                        <div class="chat-avatar">AI</div>
+                        <div class="chat-bubble">
+                            <div class="chat-meta-row">
+                                <span class="chat-meta-model">
+                                    Best answer • <span id="chosenModel">Model</span>
+                                </span>
+                            </div>
+                            <p id="bestAnswer" class="chat-text"></p>
+                        </div>
+                    </section>
+
+                    <!-- Empty state before first question -->
+                    <div id="emptyState" class="empty-state">
+                        <h2>Welcome</h2>
+                        <p>
+                            Ask anything using the box below. We’ll send it to GPT and
+                            Gemini, compare the answers, and show you the best one here.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Input bar pinned at the bottom -->
+                <div class="chat-input-wrapper">
+                    <div class="chat-input-bar">
+                        <textarea id="question" rows="1" class="chat-input"
+                            placeholder="Send a message to AI Judge..."></textarea>
+
+                        <button id="sendBtn" class="chat-send-btn btn-base" aria-label="Ask AI Judge"
+                            title="Ask AI Judge">
+                            ➜
+                        </button>
+                    </div>
+                    <p id="statusText" class="status chat-status"></p>
+                </div>
+            </section>
+
+            <!-- RIGHT: History panel -->
+            <section class="card history-panel">
+                <div class="history-header">
+                    <div>
+                        <h2 class="history-title">My history</h2>
+                        <p class="history-sub">
+                            Recent questions.
+                        </p>
+                    </div>
+                    <button id="refreshHistoryBtn" class="small-btn btn-base" type="button">
+                        Refresh
+                    </button>
+                </div>
+
+                <div id="historyList" class="history-list">
+                    <p class="history-sub">No conversations yet.</p>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer app-footer">
+            <span>Built with Node.js, MySQL, GPT, and Gemini.</span>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

@@ -3,52 +3,76 @@
 
 <head>
     <meta charset="UTF-8" />
-    <title>AI Model Judge</title>
+    <title>AI Model Judge – Login</title>
     <link rel="stylesheet" href="styles.css" />
 </head>
 
-<body>
-    <div class="page">
-        <header class="header">
+<body class="auth-body">
+    <div class="auth-page">
+        <!-- Left side: Hero / marketing -->
+        <section class="auth-hero">
             <h1>AI Model Judge</h1>
-            <p class="subtitle">Ask once. Let GPT and Gemini compete.</p>
-        </header>
+            <p class="auth-subtitle">
+                One question. GPT and Gemini compete. You get the best answer.
+            </p>
 
-        <main class="main">
-            <!-- Input card -->
-            <section class="card">
-                <label for="question" class="label">Ask your question</label>
+            <ul class="auth-bullets">
+                <li>Ask any question in natural language.</li>
+                <li>Compare responses from multiple AI models.</li>
+                <li>Judge automatically picks the clearest, best answer.</li>
+            </ul>
 
-                <div class="input-wrapper">
-                    <textarea id="question" rows="3" class="textarea"
-                        placeholder="Example: Explain AI in very simple words."></textarea>
+            <p class="auth-tagline">
+                Create a free account to start asking questions.
+            </p>
+        </section>
 
-                    <button id="sendBtn" class="send-btn" aria-label="Ask AI Judge">
-                        ➜
-                    </button>
-                </div>
+        <!-- Right side: Auth card -->
+        <section class="auth-card">
+            <div class="auth-tabs">
+                <button class="auth-tab active" id="loginTab">Login</button>
+                <button class="auth-tab" id="signupTab">Sign up</button>
+            </div>
 
-                <p id="statusText" class="status"></p>
-            </section>
+            <!-- Login form -->
+            <form id="loginForm" class="auth-form">
+                <label class="auth-label" for="loginEmail">Email</label>
+                <input type="email" id="loginEmail" class="auth-input" placeholder="you@example.com" required />
 
-            <!-- Result card -->
-            <section id="resultCard" class="card result-card hidden">
-                <h2 class="result-title">Best answer</h2>
-                <p id="bestAnswer" class="answer-text"></p>
+                <label class="auth-label" for="loginPassword">Password</label>
+                <input type="password" id="loginPassword" class="auth-input" placeholder="••••••••" required />
 
-                <div class="meta-row">
-                    <span class="meta-label">Chosen model</span>
-                    <span id="chosenModel" class="meta-badge"></span>
-                </div>
-            </section>
-        </main>
+                <button type="submit" class="auth-button">Log in</button>
+                <p class="auth-helper">
+                    New here?
+                    <span id="goToSignup" class="auth-link">Create an account</span>
+                </p>
+            </form>
 
-        <footer class="footer">
-            <span>Built as a learning project – HTML, CSS, JS + Node, GPT, Gemini.</span>
-        </footer>
+            <!-- Signup form -->
+            <form id="signupForm" class="auth-form hidden">
+                <label class="auth-label" for="signupName">Full name</label>
+                <input type="text" id="signupName" class="auth-input" placeholder="Your name" required />
+
+                <label class="auth-label" for="signupEmail">Email</label>
+                <input type="email" id="signupEmail" class="auth-input" placeholder="you@example.com" required />
+
+                <label class="auth-label" for="signupPassword">Password</label>
+                <input type="password" id="signupPassword" class="auth-input" placeholder="Create a password"
+                    required />
+
+                <button type="submit" class="auth-button">Sign up</button>
+                <p class="auth-helper">
+                    Already have an account?
+                    <span id="goToLogin" class="auth-link">Log in</span>
+                </p>
+            </form>
+
+            <p id="authMessage" class="auth-message"></p>
+        </section>
     </div>
 
-    <script src="script.js"></script>
+    <script src="auth.js"></script>
 </body>
 
 </html>
