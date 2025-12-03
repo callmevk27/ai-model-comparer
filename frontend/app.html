@@ -7,17 +7,15 @@
     <link rel="stylesheet" href="styles.css" />
 </head>
 
-<body class="auth-body app-body">
+<body class="app-body">
     <div class="app-layout">
-        <!-- Top bar like ChatGPT -->
         <header class="app-header">
             <div class="app-brand">
                 <h1>AI Model Judge</h1>
                 <p class="subtitle">
-                    Ask a question.You get the best answer.
+                    Ask a question. You get the best answer.
                 </p>
             </div>
-
             <div class="user-box">
                 <div class="user-text">
                     <span class="user-label">Logged in as</span>
@@ -27,25 +25,18 @@
             </div>
         </header>
 
-        <!-- Main two-column layout -->
         <main class="app-main">
-            <!-- LEFT: Chat panel -->
+            <!-- Left: chat -->
             <section class="card chat-panel">
-                <div class="chat-scroll">
-                    <!-- AI answer bubble -->
-                    <section id="resultCard" class="chat-message ai-message hidden">
-                        <div class="chat-avatar">AI</div>
-                        <div class="chat-bubble">
-                            <div class="chat-meta-row">
-                                <span class="chat-meta-model">
-                                    Best answer • <span id="chosenModel">Model</span>
-                                </span>
-                            </div>
-                            <p id="bestAnswer" class="chat-text"></p>
-                        </div>
-                    </section>
+                <div class="chat-top-bar">
+                    <span class="chat-thread-label">Conversation</span>
+                    <button id="newThreadBtn" class="new-chat-btn" type="button">
+                        <span class="new-chat-icon">+</span>
+                        <span class="new-chat-label">New chat</span>
+                    </button>
+                </div>
 
-                    <!-- Empty state before first question -->
+                <div id="chatScroll" class="chat-scroll">
                     <div id="emptyState" class="empty-state">
                         <h2>Welcome</h2>
                         <p>
@@ -55,12 +46,10 @@
                     </div>
                 </div>
 
-                <!-- Input bar pinned at the bottom -->
                 <div class="chat-input-wrapper">
                     <div class="chat-input-bar">
                         <textarea id="question" rows="1" class="chat-input"
                             placeholder="Send a message to AI Judge..."></textarea>
-
                         <button id="sendBtn" class="chat-send-btn btn-base" aria-label="Ask AI Judge"
                             title="Ask AI Judge">
                             ➜
@@ -70,20 +59,20 @@
                 </div>
             </section>
 
-            <!-- RIGHT: History panel -->
+            <!-- Draggable divider between chat and history -->
+            <div id="drag-divider"></div>
+
+            <!-- Right: history -->
             <section class="card history-panel">
                 <div class="history-header">
                     <div>
                         <h2 class="history-title">My history</h2>
-                        <p class="history-sub">
-                            Recent questions.
-                        </p>
+                        <p class="history-sub">Recent conversations.</p>
                     </div>
                     <button id="refreshHistoryBtn" class="small-btn btn-base" type="button">
                         Refresh
                     </button>
                 </div>
-
                 <div id="historyList" class="history-list">
                     <p class="history-sub">No conversations yet.</p>
                 </div>

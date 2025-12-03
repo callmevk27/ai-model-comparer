@@ -1,135 +1,121 @@
-const loginTab = document.getElementById("loginTab");
-const signupTab = document.getElementById("signupTab");
-const loginForm = document.getElementById("loginForm");
-const signupForm = document.getElementById("signupForm");
-const goToSignup = document.getElementById("goToSignup");
-const goToLogin = document.getElementById("goToLogin");
-const authMessage = document.getElementById("authMessage");
-
 const API_BASE = "http://localhost:3000";
 
-// Switch tabs
+// DOM
+const tabLogin = document.getElementById("tabLogin");
+const tabSignup = document.getElementById("tabSignup");
+const loginPanel = document.getElementById("loginPanel");
+const signupPanel = document.getElementById("signupPanel");
+
+const loginEmailInput = document.getElementById("loginEmail");
+const loginPasswordInput = document.getElementById("loginPassword");
+const loginBtn = document.getElementById("loginBtn");
+const loginError = document.getElementById("loginError");
+
+const signupNameInput = document.getElementById("signupName");
+const signupEmailInput = document.getElementById("signupEmail");
+const signupPasswordInput = document.getElementById("signupPassword");
+const signupBtn = document.getElementById("signupBtn");
+const signupError = document.getElementById("signupError");
+
+// Tabs
 function showLogin() {
-    loginTab.classList.add("active");
-    signupTab.classList.remove("active");
-    loginForm.classList.remove("hidden");
-    signupForm.classList.add("hidden");
-    authMessage.textContent = "";
-    authMessage.className = "auth-message";
+    tabLogin.classList.add("auth-tab-active");
+    tabSignup.classList.remove("auth-tab-active");
+    loginPanel.classList.remove("auth-panel-hidden");
+    signupPanel.classList.add("auth-panel-hidden");
 }
 
 function showSignup() {
-    signupTab.classList.add("active");
-    loginTab.classList.remove("active");
-    signupForm.classList.remove("hidden");
-    loginForm.classList.add("hidden");
-    authMessage.textContent = "";
-    authMessage.className = "auth-message";
+    tabSignup.classList.add("auth-tab-active");
+    tabLogin.classList.remove("auth-tab-active");
+    signupPanel.classList.remove("auth-panel-hidden");
+    loginPanel.classList.add("auth-panel-hidden");
 }
 
-loginTab.addEventListener("click", showLogin);
-signupTab.addEventListener("click", showSignup);
-if (goToSignup) goToSignup.addEventListener("click", showSignup);
-if (goToLogin) goToLogin.addEventListener("click", showLogin);
+tabLogin.addEventListener("click", showLogin);
+tabSignup.addEventListener("click", showSignup);
 
-// Real signup
-signupForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
+// save & redirect
+function saveAuthAndGoApp(token, user) {
+    localStorage.setItem("authToken", token);
+    localStorage.setItem("userName", user.name);
+    localStorage.setItem("userEmail", user.email);
+    window.location.href = "app.html";
+}
 
-    const name = document.getElementById("signupName").value.trim();
-    const email = document.getElementById("signupEmail").value.trim();
-    const password = document.getElementById("signupPassword").value.trim();
+// LOGIN
+async function handleLogin() {
+    loginError.textContent = "";
 
-    if (!name || !email || !password) {
-        authMessage.textContent = "Please fill in all fields.";
-        authMessage.className = "auth-message error";
-        return;
-    }
-
-    authMessage.textContent = "Creating your account…";
-    authMessage.className = "auth-message";
-
-    try {
-        const res = await fetch(`${API_BASE}/api/signup`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ name, email, password }),
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-            authMessage.textContent = data.error || "Signup failed.";
-            authMessage.className = "auth-message error";
-            return;
-        }
-
-        authMessage.textContent = data.message || "Account created. You can log in.";
-        authMessage.className = "auth-message success";
-
-        setTimeout(showLogin, 800);
-    } catch (err) {
-        console.error(err);
-        authMessage.textContent = "Error: Could not reach the server.";
-        authMessage.className = "auth-message error";
-    }
-});
-
-// Real login
-// Real login
-loginForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    const email = document.getElementById("loginEmail").value.trim();
-    const password = document.getElementById("loginPassword").value.trim();
-
+    const email = loginEmailInput.value.trim();
+    const password = loginPasswordInput.value.trim();
     if (!email || !password) {
-        authMessage.textContent = "Please enter email and password.";
-        authMessage.className = "auth-message error";
+        loginError.textContent = "Please enter email and password.";
         return;
     }
 
-    authMessage.textContent = "Logging you in…";
-    authMessage.className = "auth-message";
-
     try {
-        const res = await fetch(`${API_BASE}/api/login`, {
+        const res = await fetch(`${API_BASE}/auth/login`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email, password }),
         });
 
         const data = await res.json();
 
         if (!res.ok) {
-            authMessage.textContent = data.error || "Login failed.";
-            authMessage.className = "auth-message error";
+            loginError.textContent = data.error || "Could not log in.";
             return;
         }
 
-        // Save token and user info for later
-        if (data.token) {
-            localStorage.setItem("authToken", data.token);
-        }
-        if (data.user) {
-            localStorage.setItem("userName", data.user.name || "");
-            localStorage.setItem("userEmail", data.user.email || "");
-        }
-
-        authMessage.textContent = "Login successful. Redirecting…";
-        authMessage.className = "auth-message success";
-
-        setTimeout(() => {
-            window.location.href = "app.html";
-        }, 700);
+        saveAuthAndGoApp(data.token, data.user);
     } catch (err) {
         console.error(err);
-        authMessage.textContent = "Error: Could not reach the server.";
-        authMessage.className = "auth-message error";
+        loginError.textContent = "Error: Could not reach the server.";
     }
-});
+}
 
+// SIGNUP
+async function handleSignup() {
+    signupError.textContent = "";
+
+    const name = signupNameInput.value.trim();
+    const email = signupEmailInput.value.trim();
+    const password = signupPasswordInput.value.trim();
+
+    if (!name || !email || !password) {
+        signupError.textContent = "Please fill all fields.";
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/auth/signup`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, email, password }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            signupError.textContent = data.error || "Could not sign up.";
+            return;
+        }
+
+        saveAuthAndGoApp(data.token, data.user);
+    } catch (err) {
+        console.error(err);
+        signupError.textContent = "Error: Could not reach the server.";
+    }
+}
+
+loginBtn.addEventListener("click", handleLogin);
+signupBtn.addEventListener("click", handleSignup);
+
+// allow Enter key
+loginPasswordInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") handleLogin();
+});
+signupPasswordInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") handleSignup();
+});

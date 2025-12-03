@@ -8,67 +8,51 @@
 </head>
 
 <body class="auth-body">
-    <div class="auth-page">
-        <!-- Left side: Hero / marketing -->
-        <section class="auth-hero">
-            <h1>AI Model Judge</h1>
-            <p class="auth-subtitle">
-                One question. GPT and Gemini compete. You get the best answer.
+    <div class="auth-layout">
+        <section class="auth-left">
+            <h1 class="app-title">AI Model Judge</h1>
+            <p class="app-subtitle">
+                Ask a question. GPT and Gemini compete. You get the best answer.
             </p>
-
-            <ul class="auth-bullets">
-                <li>Ask any question in natural language.</li>
-                <li>Compare responses from multiple AI models.</li>
-                <li>Judge automatically picks the clearest, best answer.</li>
+            <ul class="app-bullets">
+                <li>Type any question in natural language.</li>
+                <li>We fetch answers from multiple AI models.</li>
+                <li>A simple judge picks the clearest, best answer.</li>
             </ul>
-
-            <p class="auth-tagline">
-                Create a free account to start asking questions.
-            </p>
         </section>
 
-        <!-- Right side: Auth card -->
-        <section class="auth-card">
+        <section class="auth-card card">
             <div class="auth-tabs">
-                <button class="auth-tab active" id="loginTab">Login</button>
-                <button class="auth-tab" id="signupTab">Sign up</button>
+                <button id="tabLogin" class="auth-tab auth-tab-active">Login</button>
+                <button id="tabSignup" class="auth-tab">Sign up</button>
             </div>
 
             <!-- Login form -->
-            <form id="loginForm" class="auth-form">
-                <label class="auth-label" for="loginEmail">Email</label>
-                <input type="email" id="loginEmail" class="auth-input" placeholder="you@example.com" required />
+            <div id="loginPanel" class="auth-panel">
+                <label class="field-label">Email</label>
+                <input id="loginEmail" class="text-input" type="email" placeholder="you@example.com" />
 
-                <label class="auth-label" for="loginPassword">Password</label>
-                <input type="password" id="loginPassword" class="auth-input" placeholder="••••••••" required />
+                <label class="field-label">Password</label>
+                <input id="loginPassword" class="text-input" type="password" placeholder="Your password" />
 
-                <button type="submit" class="auth-button">Log in</button>
-                <p class="auth-helper">
-                    New here?
-                    <span id="goToSignup" class="auth-link">Create an account</span>
-                </p>
-            </form>
+                <button id="loginBtn" class="btn-primary">Log in</button>
+                <p id="loginError" class="error-text"></p>
+            </div>
 
             <!-- Signup form -->
-            <form id="signupForm" class="auth-form hidden">
-                <label class="auth-label" for="signupName">Full name</label>
-                <input type="text" id="signupName" class="auth-input" placeholder="Your name" required />
+            <div id="signupPanel" class="auth-panel auth-panel-hidden">
+                <label class="field-label">Full name</label>
+                <input id="signupName" class="text-input" type="text" placeholder="Your name" />
 
-                <label class="auth-label" for="signupEmail">Email</label>
-                <input type="email" id="signupEmail" class="auth-input" placeholder="you@example.com" required />
+                <label class="field-label">Email</label>
+                <input id="signupEmail" class="text-input" type="email" placeholder="you@example.com" />
 
-                <label class="auth-label" for="signupPassword">Password</label>
-                <input type="password" id="signupPassword" class="auth-input" placeholder="Create a password"
-                    required />
+                <label class="field-label">Password</label>
+                <input id="signupPassword" class="text-input" type="password" placeholder="Create a password" />
 
-                <button type="submit" class="auth-button">Sign up</button>
-                <p class="auth-helper">
-                    Already have an account?
-                    <span id="goToLogin" class="auth-link">Log in</span>
-                </p>
-            </form>
-
-            <p id="authMessage" class="auth-message"></p>
+                <button id="signupBtn" class="btn-primary">Sign up</button>
+                <p id="signupError" class="error-text"></p>
+            </div>
         </section>
     </div>
 
