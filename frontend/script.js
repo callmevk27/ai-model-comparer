@@ -7,6 +7,7 @@ const statusText = document.getElementById("statusText");
 const chatScroll = document.getElementById("chatScroll");
 const emptyState = document.getElementById("emptyState");
 const newThreadBtn = document.getElementById("newThreadBtn");
+const scrollBtn = document.getElementById("scrollToBottomBtn");
 
 const userNameEl = document.getElementById("userName");
 const logoutBtn = document.getElementById("logoutBtn");
@@ -23,66 +24,15 @@ let activeThreadId = null;
 // ===========================
 
 function formatModelName(raw) {
-    return (raw || "Unknown")
-        .replace("gpt-4o-mini", "GPT")
-        .replace("gemini-2.5-flash", "Gemini");
+    if (!raw) return "AI";
+    const lower = String(raw).toLowerCase();
+    if (lower.includes("gpt")) return "GPT";
+    if (lower.includes("gemini")) return "Gemini";
+    if (lower.includes("grok")) return "Grok";
+    return raw;
 }
 
-/**
- * Basic markdown -> HTML:
- * - escapes HTML
- * - **bold**
- * - "* " bullets -> <ul><li>
- */
-function renderMarkdownToHtml(raw) {
-    if (!raw) return "";
-
-    let text = raw
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
-
-    text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-
-    const lines = text.split("\n");
-    let html = "";
-    let inList = false;
-
-    for (let line of lines) {
-        const trimmed = line.trim();
-
-        if (trimmed === "") {
-            if (inList) {
-                html += "</ul>";
-                inList = false;
-            }
-            html += "<p></p>";
-            continue;
-        }
-
-        const bulletMatch = trimmed.match(/^\*\s+(.*)/);
-        if (bulletMatch) {
-            if (!inList) {
-                html += "<ul>";
-                inList = true;
-            }
-            html += `<li>${bulletMatch[1]}</li>`;
-            continue;
-        }
-
-        if (inList) {
-            html += "</ul>";
-            inList = false;
-        }
-        html += `<p>${trimmed}</p>`;
-    }
-
-    if (inList) html += "</ul>";
-
-    return html;
-}
-
-// Escape HTML inside <pre><code>
+// Escape HTML
 function escapeHtml(str) {
     return (str || "")
         .replace(/&/g, "&amp;")
@@ -113,37 +63,87 @@ function stripComments(code) {
 }
 
 /**
- * Try to split an answer into { lang, code, explanation } based on ``` fences.
- * Example:
- *   Here is the code:
- *   ```js
- *   console.log("hi");
- *   ```
- *   Explanation...
+ * ChatGPT-style markdown renderer:
+ * - Escapes HTML
+ * - Supports ``` fenced code blocks as <pre><code>...</code></pre>
+ * - Handles **bold** and * bullet lists
  */
-function splitCodeAndExplanation(answer) {
-    if (!answer) return null;
+function renderMarkdownToHtml(raw) {
+    if (!raw) return "";
 
-    const fenceRegex = /```(\w+)?\n([\s\S]*?)```/m;
-    const match = answer.match(fenceRegex);
-    if (!match) return null;
+    // 1) Escape everything first
+    let text = raw.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-    const lang = match[1] || "";
-    const code = match[2] || "";
-    const before = answer.slice(0, match.index).trim();
-    const after = answer.slice(match.index + match[0].length).trim();
+    // 2) Extract ```code``` blocks and replace with placeholders
+    const codeBlocks = [];
+    text = text.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
+        const cleaned = stripComments(code || "");
+        const escaped = escapeHtml(cleaned);
+        const index = codeBlocks.length;
+        codeBlocks.push({ lang: lang || "", html: escaped });
+        return `__CODE_BLOCK_${index}__`;
+    });
 
-    const explanation = [before, after].filter(Boolean).join("\n\n").trim();
+    // 3) Simple **bold**
+    text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
 
-    return { lang, code, explanation };
+    // 4) Paragraphs + bullet lists for the non-code parts
+    const lines = text.split("\n");
+    let html = "";
+    let inList = false;
+
+    for (let line of lines) {
+        const trimmed = line.trim();
+
+        // Handle code block placeholders as standalone "paragraphs"
+        const codePlaceholderMatch = trimmed.match(/^__CODE_BLOCK_(\d+)__$/);
+        if (codePlaceholderMatch) {
+            if (inList) {
+                html += "</ul>";
+                inList = false;
+            }
+            const idx = parseInt(codePlaceholderMatch[1], 10);
+            const block = codeBlocks[idx];
+
+            html += `<pre class="answer-code-block"><code>${block.html}</code></pre>`;
+            continue;
+        }
+
+        if (trimmed === "") {
+            if (inList) {
+                html += "</ul>";
+                inList = false;
+            }
+            continue;
+        }
+
+        const bulletMatch = trimmed.match(/^\*\s+(.*)/);
+        if (bulletMatch) {
+            if (!inList) {
+                html += "<ul>";
+                inList = true;
+            }
+            html += `<li>${bulletMatch[1]}</li>`;
+            continue;
+        }
+
+        if (inList) {
+            html += "</ul>";
+            inList = false;
+        }
+        html += `<p>${trimmed}</p>`;
+    }
+
+    if (inList) html += "</ul>";
+
+    return html;
 }
 
 /**
  * Append one Q&A block into the main chat area.
- * Includes:
- * - user question bubble
- * - AI answer bubble
- *   - if code detected => two-column layout (Code | Explanation)
+ * ChatGPT-like:
+ * - User bubble (right)
+ * - AI bubble (left) with markdown + code blocks
  */
 function appendMessageBlock(question, answer, model) {
     if (!chatScroll) return;
@@ -152,7 +152,7 @@ function appendMessageBlock(question, answer, model) {
     const container = document.createElement("div");
     container.className = "qa-block";
 
-    // -------- USER QUESTION BUBBLE --------
+    // -------- USER QUESTION BUBBLE (right aligned) --------
     const qBubble = document.createElement("div");
     qBubble.className = "question-bubble";
 
@@ -167,7 +167,7 @@ function appendMessageBlock(question, answer, model) {
     qBubble.appendChild(qMeta);
     qBubble.appendChild(qText);
 
-    // -------- AI ANSWER BUBBLE --------
+    // -------- AI ANSWER BUBBLE (left aligned) --------
     const msg = document.createElement("section");
     msg.className = "chat-message ai-message";
 
@@ -180,65 +180,11 @@ function appendMessageBlock(question, answer, model) {
 
     const metaRow = document.createElement("div");
     metaRow.className = "chat-meta-row";
-    metaRow.textContent = `Best answer · ${formatModelName(model)}`;
+    metaRow.textContent = formatModelName(model) || "AI";
 
     const body = document.createElement("div");
     body.className = "chat-text";
-
-    // Try to split into code + explanation
-    const split = splitCodeAndExplanation(answer);
-
-    if (split && split.code.trim()) {
-        // ----- TWO-COLUMN LAYOUT: CODE | EXPLANATION -----
-        const twoCol = document.createElement("div");
-        twoCol.className = "answer-two-col";
-
-        // LEFT: code
-        const codeCol = document.createElement("div");
-        codeCol.className = "answer-code";
-
-        const codeLabel = document.createElement("div");
-        codeLabel.className = "answer-code-label";
-        codeLabel.textContent = split.lang
-            ? `Code (${split.lang})`
-            : "Code";
-
-        const codeBlock = document.createElement("pre");
-        codeBlock.className = "answer-code-block";
-
-        const codeInner = document.createElement("code");
-
-        // Remove comments before showing
-        const cleanedCode = stripComments(split.code);
-        codeInner.innerHTML = escapeHtml(cleanedCode);
-
-        codeBlock.appendChild(codeInner);
-        codeCol.appendChild(codeLabel);
-        codeCol.appendChild(codeBlock);
-
-        // RIGHT: explanation
-        const explCol = document.createElement("div");
-        explCol.className = "answer-explainer";
-
-        const explLabel = document.createElement("div");
-        explLabel.className = "answer-explainer-label";
-        explLabel.textContent = "Explanation";
-
-        const explBody = document.createElement("div");
-        explBody.className = "answer-explainer-body";
-        explBody.innerHTML = renderMarkdownToHtml(split.explanation || "");
-
-        explCol.appendChild(explLabel);
-        explCol.appendChild(explBody);
-
-        twoCol.appendChild(codeCol);
-        twoCol.appendChild(explCol);
-
-        body.appendChild(twoCol);
-    } else {
-        // ----- NORMAL SINGLE-COLUMN ANSWER -----
-        body.innerHTML = renderMarkdownToHtml(answer);
-    }
+    body.innerHTML = renderMarkdownToHtml(answer);
 
     bubble.appendChild(metaRow);
     bubble.appendChild(body);
@@ -250,7 +196,14 @@ function appendMessageBlock(question, answer, model) {
     container.appendChild(msg);
 
     chatScroll.appendChild(container);
+
+    // Always scroll to bottom when a new message arrives
     chatScroll.scrollTop = chatScroll.scrollHeight;
+
+    // Hide scroll-to-bottom button since we are already at bottom
+    if (scrollBtn) {
+        scrollBtn.classList.add("hidden");
+    }
 }
 
 // ===========================
@@ -289,7 +242,7 @@ if (logoutBtn) {
 // ===========================
 if (newThreadBtn) {
     newThreadBtn.addEventListener("click", () => {
-        // 1) Ensure current thread is visible in history
+        // 1) Reload history so previous thread is visible
         loadHistory();
 
         // 2) Reset active thread so next question becomes a new thread
@@ -371,10 +324,8 @@ async function askJudge() {
         questionInput.value = "";
         questionInput.focus();
 
-        // if brand new thread, refresh history
-        if (!activeThreadId) {
-            loadHistory();
-        }
+        // refresh history, so new/updated thread shows up
+        loadHistory();
     } catch (err) {
         console.error(err);
         statusText.textContent = "Error: Could not contact the server.";
@@ -496,6 +447,7 @@ async function loadHistory() {
                         if (chatScroll) chatScroll.innerHTML = "";
                         if (emptyState) {
                             emptyState.classList.remove("hidden");
+                            chatScroll.appendChild(emptyState);
                         }
                     }
 
@@ -566,13 +518,12 @@ if (refreshHistoryBtn) {
     });
 }
 
-/* ===================== DRAG TO RESIZE PANELS ===================== */
+// ===================== DRAG TO RESIZE PANELS =====================
 (function () {
     const root = document.documentElement;
     const appMain = document.querySelector(".app-main");
     const dragBar = document.getElementById("drag-divider");
     if (!appMain || !dragBar) {
-        // If either is missing, don't attach handlers – avoid breaking the app
         return;
     }
 
@@ -590,11 +541,9 @@ if (refreshHistoryBtn) {
         const totalWidth = rect.width;
         const dividerWidth = dragBar.offsetWidth || 5;
 
-        // Mouse position relative to left of app-main
         let chatWidth = e.clientX - rect.left;
         let historyWidth = totalWidth - chatWidth - dividerWidth;
 
-        // Minimum widths for both panels
         const minChat = 300;
         const minHistory = 250;
 
@@ -604,11 +553,9 @@ if (refreshHistoryBtn) {
             chatWidth = totalWidth - historyWidth - dividerWidth;
         }
 
-        // Apply new sizes via CSS variables
         root.style.setProperty("--chat-width", chatWidth + "px");
         root.style.setProperty("--history-width", historyWidth + "px");
 
-        // Save preference
         localStorage.setItem("chatWidth", chatWidth);
         localStorage.setItem("historyWidth", historyWidth);
     });
@@ -618,7 +565,6 @@ if (refreshHistoryBtn) {
         document.body.style.userSelect = "auto";
     });
 
-    // Restore size on load
     window.addEventListener("load", () => {
         const cw = localStorage.getItem("chatWidth");
         const hw = localStorage.getItem("historyWidth");
@@ -628,3 +574,25 @@ if (refreshHistoryBtn) {
         }
     });
 })();
+
+// ===================== SCROLL-TO-BOTTOM BUTTON LOGIC =====================
+if (chatScroll && scrollBtn) {
+    chatScroll.addEventListener("scroll", () => {
+        const atBottom =
+            chatScroll.scrollTop + chatScroll.clientHeight >=
+            chatScroll.scrollHeight - 10;
+
+        if (atBottom) {
+            scrollBtn.classList.add("hidden");
+        } else {
+            scrollBtn.classList.remove("hidden");
+        }
+    });
+
+    scrollBtn.addEventListener("click", () => {
+        chatScroll.scrollTo({
+            top: chatScroll.scrollHeight,
+            behavior: "smooth",
+        });
+    });
+}

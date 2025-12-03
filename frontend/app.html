@@ -9,11 +9,12 @@
 
 <body class="app-body">
     <div class="app-layout">
+        <!-- Top header (like ChatGPT top bar) -->
         <header class="app-header">
             <div class="app-brand">
                 <h1>AI Model Judge</h1>
                 <p class="subtitle">
-                    Ask a question. You get the best answer.
+                    GPT · Gemini · Grok — one best answer for your question.
                 </p>
             </div>
             <div class="user-box">
@@ -25,31 +26,67 @@
             </div>
         </header>
 
+        <!-- Main layout: left = sidebar (history), right = chat -->
         <main class="app-main">
-            <!-- Left: chat -->
-            <section class="card chat-panel">
-                <div class="chat-top-bar">
-                    <span class="chat-thread-label">Conversation</span>
+            <!-- LEFT SIDEBAR: New chat + history (ChatGPT-style) -->
+            <aside class="card history-panel sidebar">
+                <div class="history-header">
                     <button id="newThreadBtn" class="new-chat-btn" type="button">
                         <span class="new-chat-icon">+</span>
                         <span class="new-chat-label">New chat</span>
                     </button>
                 </div>
 
-                <div id="chatScroll" class="chat-scroll">
-                    <div id="emptyState" class="empty-state">
-                        <h2>Welcome</h2>
-                        <p>
-                            Ask anything using the box below. We’ll send it to GPT and
-                            Gemini, compare the answers, and show you the best one here.
+                <div class="history-header">
+                    <div>
+                        <h2 class="history-title">Chats</h2>
+                        <p class="history-sub">Your previous conversations.</p>
+                    </div>
+                    <button id="refreshHistoryBtn" class="small-btn btn-base" type="button">
+                        Refresh
+                    </button>
+                </div>
+
+                <div id="historyList" class="history-list">
+                    <p class="history-sub">No conversations yet.</p>
+                </div>
+
+                <div class="sidebar-footer">
+                    <p class="history-sub">AI Model Judge · v1</p>
+                </div>
+            </aside>
+
+            <!-- Draggable divider between sidebar and chat (resizable width) -->
+            <div id="drag-divider"></div>
+
+            <!-- RIGHT: Main chat area (like ChatGPT main panel) -->
+            <section class="card chat-panel">
+                <div class="chat-top-bar">
+                    <div>
+                        <span class="chat-thread-label">Conversation</span>
+                        <p class="subtitle">
+                            Ask anything. We’ll query GPT, Gemini & Grok and show the best answer.
                         </p>
                     </div>
                 </div>
 
+                <!-- Chat messages area -->
+                <div id="chatScroll" class="chat-scroll">
+                    <div id="emptyState" class="empty-state">
+                        <h2>Welcome to AI Model Judge</h2>
+                        <p>
+                            Start a new chat from the sidebar or ask your first question in the box below.
+                            Use Enter to send, Shift+Enter for a new line.
+                        </p>
+                    </div>
+                </div>
+                <button id="scrollToBottomBtn" class="scroll-bottom-btn hidden">↓</button>
+
+                <!-- Input area (like ChatGPT bottom bar) -->
                 <div class="chat-input-wrapper">
                     <div class="chat-input-bar">
                         <textarea id="question" rows="1" class="chat-input"
-                            placeholder="Send a message to AI Judge..."></textarea>
+                            placeholder="Message AI Model Judge..."></textarea>
                         <button id="sendBtn" class="chat-send-btn btn-base" aria-label="Ask AI Judge"
                             title="Ask AI Judge">
                             ➜
@@ -58,29 +95,10 @@
                     <p id="statusText" class="status chat-status"></p>
                 </div>
             </section>
-
-            <!-- Draggable divider between chat and history -->
-            <div id="drag-divider"></div>
-
-            <!-- Right: history -->
-            <section class="card history-panel">
-                <div class="history-header">
-                    <div>
-                        <h2 class="history-title">My history</h2>
-                        <p class="history-sub">Recent conversations.</p>
-                    </div>
-                    <button id="refreshHistoryBtn" class="small-btn btn-base" type="button">
-                        Refresh
-                    </button>
-                </div>
-                <div id="historyList" class="history-list">
-                    <p class="history-sub">No conversations yet.</p>
-                </div>
-            </section>
         </main>
 
         <footer class="footer app-footer">
-            <span>Built with Node.js, MySQL, GPT, and Gemini.</span>
+            <span>Built with Node.js, MySQL, GPT, Gemini & Grok. AI Model Judge prototype.</span>
         </footer>
     </div>
 
