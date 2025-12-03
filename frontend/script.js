@@ -1,6 +1,3 @@
-// ===========================
-// DOM ELEMENTS
-// ===========================
 const questionInput = document.getElementById("question");
 const sendBtn = document.getElementById("sendBtn");
 const statusText = document.getElementById("statusText");
@@ -65,29 +62,36 @@ function stripComments(code) {
 /**
  * ChatGPT-style markdown renderer:
  * - Escapes HTML
- * - Supports ``` fenced code blocks as <pre><code>...</code></pre>
+ * - Supports ``` fenced code blocks
+ * - For each code block, renders:
+ *   [Code label + Copy button] + <pre><code>...</code></pre>
  * - Handles **bold** and * bullet lists
  */
 function renderMarkdownToHtml(raw) {
     if (!raw) return "";
 
     // 1) Escape everything first
-    let text = raw.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    let text = raw
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
 
     // 2) Extract ```code``` blocks and replace with placeholders
     const codeBlocks = [];
     text = text.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
         const cleaned = stripComments(code || "");
-        const escaped = escapeHtml(cleaned);
         const index = codeBlocks.length;
-        codeBlocks.push({ lang: lang || "", html: escaped });
+        codeBlocks.push({
+            lang: lang || "",
+            raw: cleaned,
+        });
         return `__CODE_BLOCK_${index}__`;
     });
 
     // 3) Simple **bold**
     text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
 
-    // 4) Paragraphs + bullet lists for the non-code parts
+    // 4) Line-based processing: headings, callouts, bullets, paragraphs
     const lines = text.split("\n");
     let html = "";
     let inList = false;
@@ -95,20 +99,36 @@ function renderMarkdownToHtml(raw) {
     for (let line of lines) {
         const trimmed = line.trim();
 
-        // Handle code block placeholders as standalone "paragraphs"
+        // --- CODE PLACEHOLDER AS ITS OWN BLOCK ---
         const codePlaceholderMatch = trimmed.match(/^__CODE_BLOCK_(\d+)__$/);
         if (codePlaceholderMatch) {
             if (inList) {
                 html += "</ul>";
                 inList = false;
             }
+
             const idx = parseInt(codePlaceholderMatch[1], 10);
             const block = codeBlocks[idx];
 
-            html += `<pre class="answer-code-block"><code>${block.html}</code></pre>`;
+            const label = block.lang
+                ? block.lang.toUpperCase()
+                : "CODE";
+
+            const escapedCode = escapeHtml(block.raw);
+
+            html += `
+<div class="answer-code-wrapper" data-code-index="${idx}">
+  <div class="code-header-row">
+    <span class="code-lang-label">${label}</span>
+    <button type="button" class="code-copy-btn">Copy</button>
+  </div>
+  <pre class="answer-code-block"><code>${escapedCode}</code></pre>
+</div>`.trim();
+
             continue;
         }
 
+        // --- BLANK LINE => CLOSE LIST, SKIP ---
         if (trimmed === "") {
             if (inList) {
                 html += "</ul>";
@@ -117,6 +137,69 @@ function renderMarkdownToHtml(raw) {
             continue;
         }
 
+        // --- CALLOUTS: Important / Note / Warning ---
+        const importantMatch = trimmed.match(/^(&gt;\s*)?Important:(.*)/i);
+        if (importantMatch) {
+            if (inList) {
+                html += "</ul>";
+                inList = false;
+            }
+            html += `<div class="callout important"><strong>Important:</strong>${importantMatch[2]}</div>`;
+            continue;
+        }
+
+        const noteMatch = trimmed.match(/^(&gt;\s*)?Note:(.*)/i);
+        if (noteMatch) {
+            if (inList) {
+                html += "</ul>";
+                inList = false;
+            }
+            html += `<div class="callout note"><strong>Note:</strong>${noteMatch[2]}</div>`;
+            continue;
+        }
+
+        const warningMatch = trimmed.match(/^(&gt;\s*)?Warning:(.*)/i);
+        if (warningMatch) {
+            if (inList) {
+                html += "</ul>";
+                inList = false;
+            }
+            html += `<div class="callout warning"><strong>Warning:</strong>${warningMatch[2]}</div>`;
+            continue;
+        }
+
+        // --- HEADINGS (#, ##, ###) ---
+        const h3 = trimmed.match(/^###\s+(.*)/);
+        if (h3) {
+            if (inList) {
+                html += "</ul>";
+                inList = false;
+            }
+            html += `<h4>${h3[1]}</h4>`;
+            continue;
+        }
+
+        const h2 = trimmed.match(/^##\s+(.*)/);
+        if (h2) {
+            if (inList) {
+                html += "</ul>";
+                inList = false;
+            }
+            html += `<h3>${h2[1]}</h3>`;
+            continue;
+        }
+
+        const h1 = trimmed.match(/^#\s+(.*)/);
+        if (h1) {
+            if (inList) {
+                html += "</ul>";
+                inList = false;
+            }
+            html += `<h2>${h1[1]}</h2>`;
+            continue;
+        }
+
+        // --- BULLET LISTS (* item) ---
         const bulletMatch = trimmed.match(/^\*\s+(.*)/);
         if (bulletMatch) {
             if (!inList) {
@@ -127,6 +210,7 @@ function renderMarkdownToHtml(raw) {
             continue;
         }
 
+        // --- NORMAL PARAGRAPH ---
         if (inList) {
             html += "</ul>";
             inList = false;
@@ -143,7 +227,7 @@ function renderMarkdownToHtml(raw) {
  * Append one Q&A block into the main chat area.
  * ChatGPT-like:
  * - User bubble (right)
- * - AI bubble (left) with markdown + code blocks
+ * - AI bubble (left) with markdown + code blocks + per-code copy buttons
  */
 function appendMessageBlock(question, answer, model) {
     if (!chatScroll) return;
@@ -178,6 +262,7 @@ function appendMessageBlock(question, answer, model) {
     const bubble = document.createElement("div");
     bubble.className = "chat-bubble";
 
+    // simple model label row at top
     const metaRow = document.createElement("div");
     metaRow.className = "chat-meta-row";
     metaRow.textContent = formatModelName(model) || "AI";
@@ -197,10 +282,37 @@ function appendMessageBlock(question, answer, model) {
 
     chatScroll.appendChild(container);
 
-    // Always scroll to bottom when a new message arrives
+    // Wire up per-code-block copy buttons inside this answer
+    const codeWrappers = body.querySelectorAll(".answer-code-wrapper");
+    codeWrappers.forEach((wrapper) => {
+        const btn = wrapper.querySelector(".code-copy-btn");
+        const codeEl = wrapper.querySelector("code");
+        if (!btn || !codeEl) return;
+
+        btn.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            const codeText = codeEl.textContent || "";
+
+            try {
+                await navigator.clipboard.writeText(codeText);
+                const old = btn.textContent;
+                btn.textContent = "Copied";
+                btn.classList.add("copy-btn-success");
+                setTimeout(() => {
+                    btn.textContent = old;
+                    btn.classList.remove("copy-btn-success");
+                }, 1200);
+            } catch (err) {
+                console.error("Copy failed:", err);
+                btn.textContent = "Error";
+                setTimeout(() => (btn.textContent = "Copy"), 1200);
+            }
+        });
+    });
+
+    // Scroll to bottom when new message arrives
     chatScroll.scrollTop = chatScroll.scrollHeight;
 
-    // Hide scroll-to-bottom button since we are already at bottom
     if (scrollBtn) {
         scrollBtn.classList.add("hidden");
     }
@@ -242,24 +354,24 @@ if (logoutBtn) {
 // ===========================
 if (newThreadBtn) {
     newThreadBtn.addEventListener("click", () => {
-        // 1) Reload history so previous thread is visible
+        // Reload history so previous thread is visible
         loadHistory();
 
-        // 2) Reset active thread so next question becomes a new thread
+        // Reset active thread so next question becomes a new thread
         activeThreadId = null;
 
-        // 3) Clear the chat area visually
+        // Clear the chat area visually
         if (chatScroll) {
             chatScroll.innerHTML = "";
         }
 
-        // 4) Show welcome / empty state again
+        // Show welcome / empty state again
         if (emptyState) {
             emptyState.classList.remove("hidden");
             chatScroll.appendChild(emptyState);
         }
 
-        // 5) Reset input + status and focus the box
+        // Reset input + status and focus the box
         statusText.textContent = "";
         questionInput.value = "";
         questionInput.focus();

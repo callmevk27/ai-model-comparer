@@ -299,6 +299,55 @@ body {
     margin-top: 4px;
 }
 
+/* Header row inside AI bubble: model label + copy button */
+.chat-meta-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+/* Adjust old meta row margin because it's inside the header now */
+.chat-meta-row {
+    font-size: 12px;
+    color: #9ca3af;
+    margin-bottom: 0;
+}
+
+/* Copy button (ChatGPT-style) */
+.copy-btn {
+    border: none;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 500;
+    background: #0f172a;
+    color: #e5e7eb;
+    cursor: pointer;
+    opacity: 0.75;
+    transition:
+        background 0.15s ease,
+        opacity 0.15s ease,
+        transform 0.1s ease;
+}
+
+.copy-btn:hover {
+    opacity: 1;
+    background: #1f2937;
+    transform: translateY(-1px);
+}
+
+.copy-btn:active {
+    transform: translateY(0);
+}
+
+/* Small success flash when copied */
+.copy-btn-success {
+    background: #16a34a;
+    color: #ecfdf5;
+    opacity: 1;
+}
+
 /* ===== NEW CHAT BUTTON (ChatGPT-style) ===== */
 
 .new-chat-btn {
@@ -505,9 +554,55 @@ body {
     font-weight: 600;
 }
 
+/* 👇 NEW: wrapper + header + copy button for each code block */
+.answer-code-wrapper {
+    margin: 8px 0 10px;
+}
+
+.code-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+    font-size: 11px;
+    color: #9ca3af;
+}
+
+.code-lang-label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+/* button next to code */
+.code-copy-btn {
+    border: none;
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 500;
+    background: #0f172a;
+    color: #e5e7eb;
+    cursor: pointer;
+    opacity: 0.8;
+    transition:
+        background 0.15s ease,
+        opacity 0.15s ease,
+        transform 0.1s ease;
+}
+
+.code-copy-btn:hover {
+    opacity: 1;
+    background: #1f2937;
+    transform: translateY(-1px);
+}
+
+.code-copy-btn:active {
+    transform: translateY(0);
+}
+
 /* Code blocks inside chat (ChatGPT-ish) */
 .answer-code-block {
-    margin: 8px 0;
+    margin: 0;
     padding: 10px 12px;
     border-radius: 10px;
     background: #020617;
@@ -584,6 +679,7 @@ body {
     text-align: center;
     flex-shrink: 0;
 }
+
 /* ===== Floating Scroll-to-Bottom Button (ChatGPT style) ===== */
 .scroll-bottom-btn {
     position: absolute;
@@ -619,4 +715,70 @@ body {
 .scroll-bottom-btn.hidden {
     opacity: 0;
     pointer-events: none;
+}
+
+.chat-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+.chat-scroll {
+    -ms-overflow-style: none;
+    /* IE/Edge */
+    scrollbar-width: none;
+    /* Firefox */
+}
+/* ------- ChatGPT-like Headings inside AI answer ------- */
+.chat-text h2 {
+    font-size: 20px;
+    margin: 14px 0 6px;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.chat-text h3 {
+    font-size: 17px;
+    margin: 10px 0 4px;
+    font-weight: 600;
+    color: #dbeafe;
+}
+
+.chat-text h4 {
+    font-size: 15px;
+    margin: 8px 0 4px;
+    font-weight: 600;
+    color: #cbd5e1;
+}
+
+/* ------- ChatGPT-style Callout boxes ------- */
+.callout {
+    padding: 10px 14px;
+    border-radius: 10px;
+    margin: 10px 0;
+    line-height: 1.6;
+}
+
+.callout strong {
+    display: block;
+    margin-bottom: 4px;
+}
+
+/* Important box */
+.callout.important {
+    background: rgba(239, 68, 68, 0.15);
+    border-left: 4px solid #ef4444;
+    color: #fecaca;
+}
+
+/* Note box */
+.callout.note {
+    background: rgba(59, 130, 246, 0.15);
+    border-left: 4px solid #3b82f6;
+    color: #bfdbfe;
+}
+
+/* Warning box */
+.callout.warning {
+    background: rgba(234, 179, 8, 0.15);
+    border-left: 4px solid #eab308;
+    color: #fde68a;
 }
