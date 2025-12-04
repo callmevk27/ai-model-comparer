@@ -1,20 +1,25 @@
+// backend/index.js
 console.log(">>> BACKEND START (threads + GPT + Gemini) <<<");
+
+require("dotenv").config({ path: "../.env" });
 
 const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
+const bcrypt = require("bcryptjs");
 const pool = require("./db");
-require("dotenv").config({ path: "../.env" });
+const { sendVerificationEmail } = require("./mailer");
 
 const app = express();
 const PORT = 3000;
 
+const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
+
 app.use(cors());
 app.use(express.json());
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
-
-// ---------- AUTH MIDDLEWARE ----------
+/* ====================== AUTH MIDDLEWARE ====================== */
 function authMiddleware(req, res, next) {
     const authHeader = req.headers.authorization || "";
     const token = authHeader.startsWith("Bearer ")
@@ -35,89 +40,215 @@ function authMiddleware(req, res, next) {
     }
 }
 
-// ---------- HEALTH ----------
+/* =========================== HEALTH ========================== */
 app.get("/api/health", (req, res) => {
     res.json({ status: "ok", message: "Backend is running!" });
 });
 
-// ===================================================================
-// AUTH: SIGNUP / LOGIN
-// ===================================================================
+/* ============================================================= */
+/*                AUTH: SIGNUP + EMAIL VERIFY                    */
+/* ============================================================= */
 
+// SIGNUP – create user (unverified) and send Gmail verification link
 app.post("/auth/signup", async (req, res) => {
-    const { name, email, password } = req.body || {};
-    if (!name || !email || !password) {
-        return res
-            .status(400)
-            .json({ error: "Name, email, and password are required." });
-    }
+    const { name, email, password } = req.body;
 
     try {
-        const [rows] = await pool.execute(
-            "SELECT id FROM users WHERE email = ?",
-            [email]
-        );
-        if (rows.length > 0) {
-            return res.status(409).json({ error: "Email already registered." });
+        if (!name || !email || !password) {
+            return res
+                .status(400)
+                .json({ error: "Name, email and password are required." });
         }
 
-        // NOTE: for production, hash the password (bcrypt).
-        const [result] = await pool.execute(
-            "INSERT INTO users (name, email, password) VALUES (?, ?, ?)",
-            [name, email, password]
+        const trimmedName = name.trim();
+        const emailTrimmed = email.trim().toLowerCase();
+
+        // basic email validation + only Gmail allowed
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(emailTrimmed) || !emailTrimmed.endsWith("@gmail.com")) {
+            return res.status(400).json({
+                error: "Please use a valid Gmail address (example@gmail.com).",
+            });
+        }
+
+        // check if user already exists
+        const [rows] = await pool.execute(
+            "SELECT id, is_verified FROM users WHERE email = ?",
+            [emailTrimmed]
         );
 
-        const userId = result.insertId;
-        const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: "7d" });
+        if (rows.length > 0 && rows[0].is_verified === 1) {
+            // already verified account
+            return res
+                .status(409)
+                .json({ error: "An account with this email already exists." });
+        }
 
-        res.json({
-            token,
-            user: { id: userId, name, email },
+        // hash password user typed in signup form
+        const passwordHash = await bcrypt.hash(password, 10);
+
+        // verification token + expiry (24h)
+        const token = crypto.randomBytes(32).toString("hex");
+        const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+        let userId;
+
+        if (rows.length === 0) {
+            // create new user row
+            const [insertResult] = await pool.execute(
+                `INSERT INTO users
+         (name, email, password_hash, is_verified, verification_token, verification_expires)
+         VALUES (?, ?, ?, 0, ?, ?)`,
+                [trimmedName, emailTrimmed, passwordHash, token, expires]
+            );
+            userId = insertResult.insertId;
+        } else {
+            // user exists but not verified – update their info
+            userId = rows[0].id;
+            await pool.execute(
+                `UPDATE users
+         SET name = ?, password_hash = ?, verification_token = ?, verification_expires = ?, is_verified = 0
+         WHERE id = ?`,
+                [trimmedName, passwordHash, token, expires, userId]
+            );
+        }
+
+        const backendBase =
+            process.env.BACKEND_BASE_URL || `http://localhost:${PORT}`;
+        const verifyUrl = `${backendBase}/auth/verify-email?token=${token}`;
+
+        // send verification email (non-fatal if this fails)
+        try {
+            await sendVerificationEmail(emailTrimmed, trimmedName, verifyUrl);
+        } catch (mailErr) {
+            console.error("Error sending verification email:", mailErr);
+        }
+
+        return res.status(200).json({
+            success: true,
+            message:
+                "Signup received. Please check your Gmail inbox and click the verification link to activate your account.",
+            userId,
         });
     } catch (err) {
         console.error("Error in /auth/signup:", err);
-        res.status(500).json({ error: "Server error during signup." });
+        res.status(500).json({ error: "Server error while signing up." });
     }
 });
 
-app.post("/auth/login", async (req, res) => {
-    const { email, password } = req.body || {};
-    if (!email || !password) {
-        return res
-            .status(400)
-            .json({ error: "Email and password are required." });
+// VERIFY EMAIL – user clicks link in Gmail
+app.get("/auth/verify-email", async (req, res) => {
+    const { token } = req.query;
+
+    if (!token) {
+        return res.status(400).json({ error: "Missing verification token." });
     }
 
     try {
         const [rows] = await pool.execute(
-            "SELECT id, name, password FROM users WHERE email = ?",
-            [email]
+            `SELECT id, verification_expires
+       FROM users
+       WHERE verification_token = ?`,
+            [token]
         );
+
+        if (rows.length === 0) {
+            return res.status(400).json({ error: "Invalid or already used token." });
+        }
+
+        const user = rows[0];
+        const now = new Date();
+
+        if (!user.verification_expires || user.verification_expires < now) {
+            return res.status(400).json({ error: "Verification link has expired." });
+        }
+
+        // mark verified + clear token
+        await pool.execute(
+            `UPDATE users
+       SET is_verified = 1,
+           verification_token = NULL,
+           verification_expires = NULL
+       WHERE id = ?`,
+            [user.id]
+        );
+
+        const frontendUrl =
+            process.env.FRONTEND_BASE_URL || "http://localhost:5500/index.html";
+
+        return res.redirect(`${frontendUrl}?verified=1`);
+    } catch (err) {
+        console.error("Error in /auth/verify-email:", err);
+        res.status(500).json({ error: "Server error verifying email." });
+    }
+});
+
+/* ============================ LOGIN =========================== */
+// LOGIN – only allowed if email is verified, using password they set at signup
+app.post("/auth/login", async (req, res) => {
+    const { email, password } = req.body;
+
+    try {
+        if (!email || !password) {
+            return res.status(400).json({ error: "Email and password are required." });
+        }
+
+        const emailTrimmed = email.trim().toLowerCase();
+
+        const [rows] = await pool.execute(
+            "SELECT id, name, email, password_hash, is_verified FROM users WHERE email = ?",
+            [emailTrimmed]
+        );
+
         if (rows.length === 0) {
             return res.status(401).json({ error: "Invalid email or password." });
         }
 
         const user = rows[0];
-        // plain text compare; in prod use bcrypt.compare
-        if (user.password !== password) {
+
+        // must be verified first
+        if (!user.is_verified) {
+            return res.status(403).json({
+                error: "Your email is not verified. Please check your inbox.",
+            });
+        }
+
+        // password_hash may be null if user existed before
+        if (!user.password_hash) {
+            return res.status(500).json({
+                error: "Account error: missing password hash. Please reset your password.",
+            });
+        }
+
+        const passwordMatch = await bcrypt.compare(password, user.password_hash);
+        if (!passwordMatch) {
             return res.status(401).json({ error: "Invalid email or password." });
         }
 
-        const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: "7d" });
+        // generate JWT
+        const token = jwt.sign(
+            { userId: user.id, email: user.email },
+            process.env.JWT_SECRET || "dev-secret",
+            { expiresIn: "7d" }
+        );
 
         res.json({
+            success: true,
             token,
-            user: { id: user.id, name: user.name, email },
+            name: user.name,
+            email: user.email,
         });
+
     } catch (err) {
         console.error("Error in /auth/login:", err);
-        res.status(500).json({ error: "Server error during login." });
+        res.status(500).json({ error: "Server error while logging in." });
     }
 });
 
-// ===================================================================
-// GPT & GEMINI HELPERS
-// ===================================================================
+
+/* ============================================================= */
+/*                 GPT & GEMINI HELPERS                          */
+/* ============================================================= */
 
 async function getGptAnswer(question) {
     const apiKey = process.env.OPENAI_API_KEY;
@@ -207,16 +338,16 @@ function pickBestAnswer(gptAnswer, geminiAnswer) {
         return { bestAnswer: gpt, model: "gpt-4o-mini" };
     }
 
-    // simple judge
+    // very simple judge: prefer longer answer
     if (gem.length > gpt.length) {
         return { bestAnswer: gem, model: "gemini-2.5-flash" };
     }
     return { bestAnswer: gpt, model: "gpt-4o-mini" };
 }
 
-// ===================================================================
-// CHAT + THREADS
-// ===================================================================
+/* ============================================================= */
+/*                    CHAT + THREADS                             */
+/* ============================================================= */
 
 // POST /api/chat
 app.post("/api/chat", authMiddleware, async (req, res) => {
@@ -239,7 +370,7 @@ app.post("/api/chat", authMiddleware, async (req, res) => {
 
         const [result] = await pool.execute(
             `INSERT INTO conversations
-       (user_id, question, best_answer, model_used, root_conversation_id)
+         (user_id, question, best_answer, model_used, root_conversation_id)
        VALUES (?, ?, ?, ?, ?)`,
             [req.userId, question, bestAnswer, model, rootId]
         );
@@ -250,7 +381,7 @@ app.post("/api/chat", authMiddleware, async (req, res) => {
             rootId = insertedId;
             await pool.execute(
                 `UPDATE conversations
-         SET root_conversation_id = ?
+           SET root_conversation_id = ?
          WHERE id = ?`,
                 [rootId, insertedId]
             );
@@ -272,7 +403,7 @@ app.post("/api/chat", authMiddleware, async (req, res) => {
     }
 });
 
-// GET /api/history – list threads
+// GET /api/history – list top-level threads
 app.get("/api/history", authMiddleware, async (req, res) => {
     try {
         const [rows] = await pool.execute(
@@ -294,7 +425,7 @@ app.get("/api/history", authMiddleware, async (req, res) => {
     }
 });
 
-// GET /api/thread/:id – full conversation
+// GET /api/thread/:id – full conversation for a thread
 app.get("/api/thread/:id", authMiddleware, async (req, res) => {
     const threadId = req.params.id;
 
@@ -317,14 +448,17 @@ app.get("/api/thread/:id", authMiddleware, async (req, res) => {
     }
 });
 
-// DELETE /api/thread/:id – delete a full thread
+// DELETE /api/thread/:id – delete whole conversation thread
 app.delete("/api/thread/:id", authMiddleware, async (req, res) => {
     const threadId = req.params.id;
 
     try {
         const [rows] = await pool.execute(
-            `SELECT id FROM conversations
-       WHERE id = ? AND user_id = ? AND id = root_conversation_id`,
+            `SELECT id
+       FROM conversations
+       WHERE id = ?
+         AND user_id = ?
+         AND id = root_conversation_id`,
             [threadId, req.userId]
         );
 
@@ -334,7 +468,8 @@ app.delete("/api/thread/:id", authMiddleware, async (req, res) => {
 
         await pool.execute(
             `DELETE FROM conversations
-       WHERE root_conversation_id = ? AND user_id = ?`,
+       WHERE root_conversation_id = ?
+         AND user_id = ?`,
             [threadId, req.userId]
         );
 
@@ -348,9 +483,7 @@ app.delete("/api/thread/:id", authMiddleware, async (req, res) => {
     }
 });
 
-// ===================================================================
-// START SERVER
-// ===================================================================
+/* =========================== START ============================ */
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
