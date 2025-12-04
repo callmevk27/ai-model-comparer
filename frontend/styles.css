@@ -475,9 +475,23 @@ body {
     background: #2563eb;
     border: 1px solid #60a5fa;
     color: #f9fafb;
+
+    /* 💬 make bubble size follow text length */
+    display: inline-block;
+    width: fit-content;
     max-width: 80%;
+    /* still wrap long messages */
+    min-width: 60px;
+    /* tiny messages don’t look weird */
+    white-space: normal;
+    /* allow wrapping across lines */
+
     margin-left: auto;
-    transition: max-width 0.18s ease;
+    /* keep it right-aligned */
+    transition:
+        max-width 0.18s ease,
+        width 0.18s ease;
+
 }
 
 .question-meta-row {
@@ -497,6 +511,7 @@ body {
 .chat-message {
     display: flex;
     gap: 10px;
+    justify-content: flex-end;
     margin-bottom: 4px;
     align-items: flex-start;
 }
@@ -512,6 +527,7 @@ body {
     justify-content: center;
     align-items: center;
     flex-shrink: 0;
+    order: 2;
 }
 
 .chat-bubble {
@@ -522,6 +538,8 @@ body {
     max-width: 80%;
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
     transition: max-width 0.18s ease;
+    margin-left:auto;
+    order: 1;
 }
 
 .chat-meta-row {

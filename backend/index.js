@@ -174,7 +174,7 @@ app.get("/auth/verify-email", async (req, res) => {
         );
 
         const frontendUrl =
-            process.env.FRONTEND_BASE_URL || "http://localhost:5500/index.html";
+            process.env.FRONTEND_BASE_URL || "http://127.0.0.1:5500/frontend/index.html";
 
         return res.redirect(`${frontendUrl}?verified=1`);
     } catch (err) {
