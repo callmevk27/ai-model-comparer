@@ -57,6 +57,34 @@ ${appName} Team`,
     await transporter.sendMail(mailOptions);
 }
 
-module.exports = {
-    sendVerificationEmail,
-};
+async function sendPasswordResetEmail(toEmail, name, resetUrl) {
+    const appName = "AI Model Judge";
+
+    const mailOptions = {
+        from: `"${appName}" <${process.env.EMAIL_USER}>`,
+        to: toEmail,
+        subject: "Reset your AI Model Judge password",
+        html: `
+            <div style="font-family: system-ui, sans-serif; color:#0f172a;">
+              <h2>Hello ${name},</h2>
+              <p>You requested to reset your password.</p>
+              <p>Click the button below to create a new one:</p>
+              <p style="margin:16px 0;">
+                <a href="${resetUrl}"
+                   style="padding:10px 16px; background:#4f46e5; color:white; border-radius:999px; text-decoration:none;">
+                  Reset Password
+                </a>
+              </p>
+              <p style="font-size:13px;color:#4b5563;">
+                  Or copy and paste this link into your browser:<br/>
+                  <span style="word-break:break-all;">${resetUrl}</span>
+              </p>
+              <p>This link will expire in 1 hour.</p>
+            </div>
+        `,
+    };
+
+    return transporter.sendMail(mailOptions);
+}
+
+module.exports = { sendVerificationEmail, sendPasswordResetEmail };

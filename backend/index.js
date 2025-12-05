@@ -9,7 +9,8 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const pool = require("./db");
-const { sendVerificationEmail } = require("./mailer");
+const { sendVerificationEmail, sendPasswordResetEmail } = require("./mailer");
+
 
 const app = express();
 const PORT = 3000;
@@ -173,10 +174,13 @@ app.get("/auth/verify-email", async (req, res) => {
             [user.id]
         );
 
-        const frontendUrl =
-            process.env.FRONTEND_BASE_URL || "http://127.0.0.1:5500/frontend/index.html";
+        // After verifying, send them back to the login page
+        const frontendBase =
+            process.env.FRONTEND_BASE_URL || "http://127.0.0.1:5500/frontend";
 
-        return res.redirect(`${frontendUrl}?verified=1`);
+        // e.g. http://127.0.0.1:5500/frontend/index.html?verified=1
+        return res.redirect(`${frontendBase}/index.html?verified=1`);
+
     } catch (err) {
         console.error("Error in /auth/verify-email:", err);
         res.status(500).json({ error: "Server error verifying email." });
@@ -480,6 +484,106 @@ app.delete("/api/thread/:id", authMiddleware, async (req, res) => {
         res
             .status(500)
             .json({ error: "Server error while deleting thread." });
+    }
+});
+app.post("/auth/forgot-password", async (req, res) => {
+    const { email } = req.body;
+
+    if (!email) return res.status(400).json({ error: "Email is required." });
+
+    try {
+        const [rows] = await pool.execute(
+            `SELECT id, name FROM users WHERE email = ? AND is_verified = 1`,
+            [email]
+        );
+
+        if (rows.length === 0) {
+            return res.json({
+                success: true,
+                message: "If this email exists, a reset link has been sent."
+            });
+        }
+
+        const user = rows[0];
+
+        // Create token valid for 1 hour
+        const token = crypto.randomBytes(32).toString("hex");
+        const expires = new Date(Date.now() + 60 * 60 * 1000);
+
+        await pool.execute(
+            `UPDATE users SET reset_token = ?, reset_expires = ? WHERE id = ?`,
+            [token, expires, user.id]
+        );
+
+        const frontendBase =
+            process.env.FRONTEND_BASE_URL || "http://127.0.0.1:5500/frontend";
+
+        const resetUrl = `${frontendBase}/reset.html?token=${token}`;
+
+        await sendPasswordResetEmail(email, user.name, resetUrl);
+
+        res.json({
+            success: true,
+            message: "Password reset link sent to your Gmail inbox."
+        });
+    } catch (err) {
+        console.error("forgot-password error:", err);
+        res.status(500).json({ error: "Server error processing request." });
+    }
+});
+app.get("/auth/reset-password", async (req, res) => {
+    const { token } = req.query;
+
+    if (!token) return res.status(400).send("Missing token.");
+
+    try {
+        const [rows] = await pool.execute(
+            `SELECT id FROM users WHERE reset_token = ? AND reset_expires > NOW()`,
+            [token]
+        );
+
+        if (rows.length === 0) {
+            return res.status(400).send("Reset link is invalid or expired.");
+        }
+
+        res.redirect(`${process.env.FRONTEND_BASE_URL}/reset.html?token=${token}`);
+    } catch (err) {
+        console.error("reset-password verify error:", err);
+        res.status(500).send("Error validating reset link.");
+    }
+});
+app.post("/auth/reset-password", async (req, res) => {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+        return res.status(400).json({ error: "Token and new password are required." });
+    }
+
+    try {
+        const [rows] = await pool.execute(
+            `SELECT id FROM users 
+             WHERE reset_token = ? AND reset_expires > NOW()`,
+            [token]
+        );
+
+        if (rows.length === 0) {
+            return res.status(400).json({ error: "Reset link is invalid or expired." });
+        }
+
+        const userId = rows[0].id;
+        const hash = await bcrypt.hash(newPassword, 10);
+
+        await pool.execute(
+            `UPDATE users 
+             SET password_hash = ?, reset_token = NULL, reset_expires = NULL
+             WHERE id = ?`,
+            [hash, userId]
+        );
+
+        res.json({ success: true, message: "Password updated successfully!" });
+    } catch (err) {
+        console.error("reset-password error:", err);
+        res.status(500).json({ error: "Server error updating password." });
     }
 });
 

@@ -1,13 +1,13 @@
-// auth.js
-
+// ====== CONFIG ======
 const API_BASE = "http://localhost:3000";
 
-// ---------- DOM ELEMENTS ----------
+// ====== DOM ELEMENTS ======
 const tabLogin = document.getElementById("tabLogin");
 const tabSignup = document.getElementById("tabSignup");
 
 const loginPanel = document.getElementById("loginPanel");
 const signupPanel = document.getElementById("signupPanel");
+const forgotPanel = document.getElementById("forgotPanel");
 
 const loginEmail = document.getElementById("loginEmail");
 const loginPassword = document.getElementById("loginPassword");
@@ -20,76 +20,69 @@ const signupPassword = document.getElementById("signupPassword");
 const signupBtn = document.getElementById("signupBtn");
 const signupError = document.getElementById("signupError");
 
-// ---------- HELPERS ----------
+const forgotPasswordLink = document.getElementById("forgotPasswordLink");
+const forgotEmail = document.getElementById("forgotEmail");
+const forgotBtn = document.getElementById("forgotBtn");
+const forgotMsg = document.getElementById("forgotMsg");
+const backToLoginBtn = document.getElementById("backToLoginBtn");
 
-function showLoginTab() {
-    tabLogin.classList.add("auth-tab-active");
-    tabSignup.classList.remove("auth-tab-active");
+const verifiedBanner = document.getElementById("verifiedBanner");
 
+// ====== HELPERS ======
+function clearErrors() {
+    if (loginError) loginError.textContent = "";
+    if (signupError) signupError.textContent = "";
+    if (forgotMsg) {
+        forgotMsg.textContent = "";
+        forgotMsg.className = "error-text";
+    }
+}
+
+function showLoginPanel() {
+    clearErrors();
     loginPanel.classList.remove("auth-panel-hidden");
     signupPanel.classList.add("auth-panel-hidden");
+    forgotPanel.classList.add("auth-panel-hidden");
 
-    loginError.textContent = "";
+    tabLogin.classList.add("auth-tab-active");
+    tabSignup.classList.remove("auth-tab-active");
 }
 
-function showSignupTab() {
-    tabSignup.classList.add("auth-tab-active");
-    tabLogin.classList.remove("auth-tab-active");
-
+function showSignupPanel() {
+    clearErrors();
     signupPanel.classList.remove("auth-panel-hidden");
     loginPanel.classList.add("auth-panel-hidden");
+    forgotPanel.classList.add("auth-panel-hidden");
 
-    signupError.textContent = "";
+    tabSignup.classList.add("auth-tab-active");
+    tabLogin.classList.remove("auth-tab-active");
 }
 
-// Simple email check
-function isValidEmail(email) {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(String(email).toLowerCase());
+function showForgotPanel() {
+    clearErrors();
+    forgotPanel.classList.remove("auth-panel-hidden");
+    loginPanel.classList.add("auth-panel-hidden");
+    signupPanel.classList.add("auth-panel-hidden");
 }
 
-// Read query params (to catch ?verified=1)
-function getQueryParam(name) {
-    const params = new URLSearchParams(window.location.search);
-    return params.get(name);
-}
-
-// ---------- TAB SWITCH EVENTS ----------
-
+// ====== TABS ======
 if (tabLogin) {
-    tabLogin.addEventListener("click", (e) => {
-        e.preventDefault();
-        showLoginTab();
-    });
+    tabLogin.addEventListener("click", showLoginPanel);
 }
-
 if (tabSignup) {
-    tabSignup.addEventListener("click", (e) => {
-        e.preventDefault();
-        showSignupTab();
-    });
+    tabSignup.addEventListener("click", showSignupPanel);
 }
 
-// ---------- LOGIN ----------
-
+// ====== LOGIN ======
 async function handleLogin() {
-    loginError.textContent = "";
-
-    const email = (loginEmail.value || "").trim();
-    const password = loginPassword.value || "";
+    clearErrors();
+    const email = loginEmail.value.trim();
+    const password = loginPassword.value.trim();
 
     if (!email || !password) {
-        loginError.textContent = "Please enter both email and password.";
+        loginError.textContent = "Please enter email and password.";
         return;
     }
-
-    if (!isValidEmail(email)) {
-        loginError.textContent = "Please enter a valid email address.";
-        return;
-    }
-
-    loginBtn.disabled = true;
-    loginBtn.textContent = "Logging in...";
 
     try {
         const res = await fetch(`${API_BASE}/auth/login`, {
@@ -98,70 +91,45 @@ async function handleLogin() {
             body: JSON.stringify({ email, password }),
         });
 
-        const data = await res.json().catch(() => ({}));
+        const data = await res.json();
 
-        if (!res.ok || !data.success || !data.token) {
-            loginError.textContent =
-                data.error || "Login failed. Please check your details.";
+        if (!res.ok) {
+            loginError.textContent = data.error || "Login failed.";
             return;
         }
 
-        // ✅ Only store a real token
+        // Save token + name/email
         localStorage.setItem("authToken", data.token);
-        localStorage.setItem("userName", data.name || "");
-        localStorage.setItem("userEmail", data.email || email);
+        localStorage.setItem("userName", data.name);
+        localStorage.setItem("userEmail", data.email);
 
-        // Go to main app
         window.location.href = "app.html";
     } catch (err) {
         console.error("Login error:", err);
-        loginError.textContent = "Error: Could not reach the server.";
-    } finally {
-        loginBtn.disabled = false;
-        loginBtn.textContent = "Log in";
+        loginError.textContent = "Error: could not reach the server.";
     }
 }
 
 if (loginBtn) {
-    loginBtn.addEventListener("click", (e) => {
-        e.preventDefault();
-        handleLogin();
+    loginBtn.addEventListener("click", handleLogin);
+}
+if (loginPassword) {
+    loginPassword.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") handleLogin();
     });
 }
 
-// Allow Enter key on login fields
-[loginEmail, loginPassword].forEach((el) => {
-    if (!el) return;
-    el.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-            e.preventDefault();
-            handleLogin();
-        }
-    });
-});
-
-// ---------- SIGNUP ----------
-
+// ====== SIGNUP ======
 async function handleSignup() {
-    signupError.style.color = "#f87171"; // default red
-    signupError.textContent = "";
-
-    const name = (signupName.value || "").trim();
-    const email = (signupEmail.value || "").trim().toLowerCase();
-    const password = signupPassword.value || "";
+    clearErrors();
+    const name = signupName.value.trim();
+    const email = signupEmail.value.trim();
+    const password = signupPassword.value.trim();
 
     if (!name || !email || !password) {
-        signupError.textContent = "Name, email and password are required.";
+        signupError.textContent = "Please fill in all fields.";
         return;
     }
-
-    if (!isValidEmail(email)) {
-        signupError.textContent = "Please enter a valid email address.";
-        return;
-    }
-
-    signupBtn.disabled = true;
-    signupBtn.textContent = "Signing up...";
 
     try {
         const res = await fetch(`${API_BASE}/auth/signup`, {
@@ -170,65 +138,80 @@ async function handleSignup() {
             body: JSON.stringify({ name, email, password }),
         });
 
-        const data = await res.json().catch(() => ({}));
+        const data = await res.json();
 
-        if (!res.ok || !data.success) {
-            signupError.textContent =
-                data.error || "Could not create account. Please try again.";
+        if (!res.ok) {
+            signupError.textContent = data.error || "Signup failed.";
             return;
         }
 
-        // Success – ask user to check Gmail for verification link
-        signupError.style.color = "#4ade80"; // green
+        signupError.className = "success-text";
         signupError.textContent =
-            "Signup successful! Please check your Gmail inbox and click the verification link.";
+            data.message ||
+            "Signup successful. Please check your Gmail inbox to verify your email.";
 
-        // Optionally auto-switch to login tab after a short delay
-        setTimeout(() => {
-            showLoginTab();
-        }, 1500);
+        // Optional: clear fields
+        signupPassword.value = "";
     } catch (err) {
         console.error("Signup error:", err);
-        signupError.textContent = "Error: Could not reach the server.";
-    } finally {
-        signupBtn.disabled = false;
-        signupBtn.textContent = "Sign up";
+        signupError.textContent = "Error: could not reach the server.";
     }
 }
 
 if (signupBtn) {
-    signupBtn.addEventListener("click", (e) => {
-        e.preventDefault();
-        handleSignup();
+    signupBtn.addEventListener("click", handleSignup);
+}
+
+// ====== FORGOT PASSWORD ======
+if (forgotPasswordLink) {
+    forgotPasswordLink.addEventListener("click", showForgotPanel);
+}
+
+if (backToLoginBtn) {
+    backToLoginBtn.addEventListener("click", showLoginPanel);
+}
+
+if (forgotBtn) {
+    forgotBtn.addEventListener("click", async () => {
+        clearErrors();
+        const email = forgotEmail.value.trim();
+
+        if (!email) {
+            forgotMsg.textContent = "Please enter your Gmail address.";
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API_BASE}/auth/forgot-password`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email }),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                forgotMsg.textContent = data.error || "Could not send reset link.";
+                return;
+            }
+
+            // success
+            forgotMsg.className = "success-text";
+            forgotMsg.textContent =
+                data.message ||
+                "If this email exists, a reset link has been sent to your Gmail inbox.";
+        } catch (err) {
+            console.error("Forgot password error:", err);
+            forgotMsg.textContent = "Error: could not reach the server.";
+        }
     });
 }
 
-// Allow Enter key on signup fields
-[signupName, signupEmail, signupPassword].forEach((el) => {
-    if (!el) return;
-    el.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-            e.preventDefault();
-            handleSignup();
-        }
-    });
-});
-
-// ---------- ON LOAD: HANDLE ?verified=1 & CLEAR OLD TOKENS ----------
-
-window.addEventListener("DOMContentLoaded", () => {
-    // If user just verified email and got redirected with ?verified=1
-    const verifiedFlag = getQueryParam("verified");
-    if (verifiedFlag === "1" && loginError) {
-        showLoginTab();
-        loginError.style.color = "#4ade80"; // green
-        loginError.textContent =
-            "Your email has been verified. You can log in now.";
+// ====== SHOW VERIFIED BANNER IF ?verified=1 ======
+(function checkVerifiedFlag() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("verified") === "1" && verifiedBanner) {
+        verifiedBanner.style.display = "block";
+        showLoginPanel();
     }
-
-    // If there's a broken "undefined" token from older code, clear it
-    const existingToken = localStorage.getItem("authToken");
-    if (existingToken === "undefined" || existingToken === "" || existingToken === null) {
-        localStorage.removeItem("authToken");
-    }
-});
+})();
