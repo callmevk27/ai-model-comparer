@@ -17,6 +17,7 @@ const loginError = document.getElementById("loginError");
 const signupName = document.getElementById("signupName");
 const signupEmail = document.getElementById("signupEmail");
 const signupPassword = document.getElementById("signupPassword");
+const signupConfirmPassword = document.getElementById("signupConfirmPassword");
 const signupBtn = document.getElementById("signupBtn");
 const signupError = document.getElementById("signupError");
 
@@ -31,7 +32,10 @@ const verifiedBanner = document.getElementById("verifiedBanner");
 // ====== HELPERS ======
 function clearErrors() {
     if (loginError) loginError.textContent = "";
-    if (signupError) signupError.textContent = "";
+    if (signupError) {
+        signupError.textContent = "";
+        signupError.className = "error-text";
+    }
     if (forgotMsg) {
         forgotMsg.textContent = "";
         forgotMsg.className = "error-text";
@@ -125,9 +129,17 @@ async function handleSignup() {
     const name = signupName.value.trim();
     const email = signupEmail.value.trim();
     const password = signupPassword.value.trim();
+    const confirmPassword = signupConfirmPassword.value.trim();
 
-    if (!name || !email || !password) {
+    if (!name || !email || !password || !confirmPassword) {
         signupError.textContent = "Please fill in all fields.";
+        return;
+    }
+
+    if (password !== confirmPassword) {
+        signupError.textContent = "Passwords do not match.";
+        signupConfirmPassword.value = "";
+        signupConfirmPassword.focus();
         return;
     }
 
@@ -145,13 +157,17 @@ async function handleSignup() {
             return;
         }
 
+        // success UI
         signupError.className = "success-text";
         signupError.textContent =
             data.message ||
-            "Signup successful. Please check your Gmail inbox to verify your email.";
+            "Signup successful. Please check your Gmail inbox and click the verification link.";
 
-        // Optional: clear fields
+        // Optional: clear password fields
         signupPassword.value = "";
+        signupConfirmPassword.value = "";
+        signupName.value = "";
+        signupEmail.value = "";
     } catch (err) {
         console.error("Signup error:", err);
         signupError.textContent = "Error: could not reach the server.";
@@ -160,6 +176,11 @@ async function handleSignup() {
 
 if (signupBtn) {
     signupBtn.addEventListener("click", handleSignup);
+}
+if (signupConfirmPassword) {
+    signupConfirmPassword.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") handleSignup();
+    });
 }
 
 // ====== FORGOT PASSWORD ======
@@ -191,7 +212,8 @@ if (forgotBtn) {
             const data = await res.json();
 
             if (!res.ok) {
-                forgotMsg.textContent = data.error || "Could not send reset link.";
+                forgotMsg.textContent =
+                    data.error || "Could not send reset link.";
                 return;
             }
 

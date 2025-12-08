@@ -19,6 +19,16 @@ const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 
 app.use(cors());
 app.use(express.json());
+const fs = require("fs");
+const path = require("path");
+const multer = require("multer");
+
+const upload = multer({
+    dest: path.join(__dirname, "uploads"),
+    limits: {
+        fileSize: 10 * 1024 * 1024, // 10 MB
+    },
+});
 
 /* ====================== AUTH MIDDLEWARE ====================== */
 function authMiddleware(req, res, next) {
@@ -406,6 +416,340 @@ app.post("/api/chat", authMiddleware, async (req, res) => {
         res.status(500).json({ error: "Server error in chat." });
     }
 });
+// ---------- GPT WITH TEXT CONTEXT ----------
+async function getGptAnswerWithContext(question, contextText) {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+        return "OpenAI API key not configured yet.";
+    }
+
+    const systemPrompt =
+        "You are a helpful assistant. The user has also provided text extracted " +
+        "from an uploaded file. Use that file context plus the question to give a clear answer.";
+
+    const userContent = `
+QUESTION:
+${question}
+
+FILE CONTEXT (may be truncated):
+${contextText}
+    `.trim();
+
+    try {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                model: "gpt-4o-mini",
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userContent },
+                ],
+            }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            console.error("OpenAI (file text) error:", data);
+            return `OpenAI error: ${data.error?.message || "unknown error"}`;
+        }
+
+        return data.choices?.[0]?.message?.content || "No answer from GPT.";
+    } catch (err) {
+        console.error("Error calling GPT with file text:", err);
+        return "Error contacting GPT with file text.";
+    }
+}
+
+// ---------- GEMINI WITH TEXT CONTEXT ----------
+async function getGeminiAnswerWithContext(question, contextText) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        return "Gemini API key not configured yet.";
+    }
+
+    const userPrompt = `
+QUESTION:
+${question}
+
+FILE CONTEXT (may be truncated):
+${contextText}
+    `.trim();
+
+    try {
+        const response = await fetch(
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+            {
+                method: "POST",
+                headers: {
+                    "x-goog-api-key": apiKey,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    contents: [
+                        {
+                            parts: [
+                                {
+                                    text: userPrompt,
+                                },
+                            ],
+                        },
+                    ],
+                }),
+            }
+        );
+
+        const data = await response.json();
+        if (!response.ok) {
+            console.error("Gemini (file text) error:", data);
+            return `Gemini error: ${data.error?.message || "unknown error"}`;
+        }
+
+        return (
+            data.candidates?.[0]?.content?.parts?.[0]?.text ||
+            "No answer from Gemini."
+        );
+    } catch (err) {
+        console.error("Error calling Gemini with file text:", err);
+        return "Error contacting Gemini with file text.";
+    }
+}
+
+// ---------- GPT WITH IMAGE (VISION) ----------
+async function getGptVisionAnswer(question, mime, base64Image) {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+        return "OpenAI API key not configured yet (vision).";
+    }
+
+    try {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                model: "gpt-4o",
+                messages: [
+                    {
+                        role: "user",
+                        content: [
+                            {
+                                type: "text",
+                                text: question,
+                            },
+                            {
+                                type: "image_url",
+                                image_url: {
+                                    url: `data:${mime};base64,${base64Image}`,
+                                },
+                            },
+                        ],
+                    },
+                ],
+            }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            console.error("OpenAI vision error:", data);
+            return `OpenAI vision error: ${data.error?.message || "unknown error"}`;
+        }
+
+        return data.choices?.[0]?.message?.content || "No answer from GPT vision.";
+    } catch (err) {
+        console.error("Error calling GPT vision:", err);
+        return "Error contacting GPT vision.";
+    }
+}
+
+// ---------- GEMINI WITH IMAGE (VISION) ----------
+async function getGeminiVisionAnswer(question, mime, base64Image) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        return "Gemini API key not configured yet (vision).";
+    }
+
+    try {
+        const response = await fetch(
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+            {
+                method: "POST",
+                headers: {
+                    "x-goog-api-key": apiKey,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    contents: [
+                        {
+                            parts: [
+                                { text: question },
+                                {
+                                    inline_data: {
+                                        mime_type: mime,
+                                        data: base64Image,
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                }),
+            }
+        );
+
+        const data = await response.json();
+        if (!response.ok) {
+            console.error("Gemini vision error:", data);
+            return `Gemini vision error: ${data.error?.message || "unknown error"}`;
+        }
+
+        return (
+            data.candidates?.[0]?.content?.parts?.[0]?.text ||
+            "No answer from Gemini vision."
+        );
+    } catch (err) {
+        console.error("Error calling Gemini vision:", err);
+        return "Error contacting Gemini vision.";
+    }
+}
+
+// ===================================================================
+// CHAT WITH FILE / IMAGE – GPT + GEMINI + JUDGE
+// ===================================================================
+app.post(
+    "/api/chat-with-file",
+    authMiddleware,
+    upload.single("file"),
+    async (req, res) => {
+        const { question } = req.body || {};
+        const file = req.file;
+
+        if (!file) {
+            return res.status(400).json({ error: "No file uploaded." });
+        }
+
+        const userQuestion =
+            typeof question === "string" && question.trim().length > 0
+                ? question.trim()
+                : "Please analyze this file and explain it to me.";
+
+        const mime = file.mimetype || "";
+        const filePath = file.path;
+
+        console.log(">>> /api/chat-with-file got file:", {
+            name: file.originalname,
+            mime,
+            size: file.size,
+        });
+
+        try {
+            let gptAnswer = "";
+            let geminiAnswer = "";
+
+            if (mime.startsWith("text/") || mime === "application/json") {
+                // ---------- TEXT FILE ----------
+                const content = fs.readFileSync(filePath, "utf8");
+                const truncated = content.slice(0, 8000); // keep it safe
+
+                // send to BOTH GPT + GEMINI with file context
+                [gptAnswer, geminiAnswer] = await Promise.all([
+                    getGptAnswerWithContext(userQuestion, truncated),
+                    getGeminiAnswerWithContext(userQuestion, truncated),
+                ]);
+            } else if (mime.startsWith("image/")) {
+                // ---------- IMAGE FILE ----------
+                const buffer = fs.readFileSync(filePath);
+                const base64Image = buffer.toString("base64");
+
+                [gptAnswer, geminiAnswer] = await Promise.all([
+                    getGptVisionAnswer(userQuestion, mime, base64Image),
+                    getGeminiVisionAnswer(userQuestion, mime, base64Image),
+                ]);
+            } else {
+                // ---------- OTHER FILE TYPES (pdf, docx, zip, etc.) ----------
+                // We don't read the raw content yet, but still let both models respond.
+                const contextText = `
+The user uploaded a file.
+
+File name: ${file.originalname}
+MIME type: ${mime}
+File size (bytes): ${file.size}
+
+You CANNOT see the actual file bytes, but you can still:
+- Explain what this type of file is usually used for.
+- Suggest how the user might work with or analyze such a file.
+- Give guidance based on the user's question.
+                `.trim();
+
+                [gptAnswer, geminiAnswer] = await Promise.all([
+                    getGptAnswerWithContext(userQuestion, contextText),
+                    getGeminiAnswerWithContext(userQuestion, contextText),
+                ]);
+            }
+
+            // Use your existing judge to pick the best
+            const { bestAnswer, model } = pickBestAnswer(
+                gptAnswer,
+                geminiAnswer
+            );
+
+            // Save conversation just like /api/chat
+            let rootId = null;
+            const [result] = await pool.execute(
+                `INSERT INTO conversations
+                 (user_id, question, best_answer, model_used, root_conversation_id)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [
+                    req.userId,
+                    `[File: ${file.originalname}] ${userQuestion}`,
+                    bestAnswer,
+                    model,
+                    rootId,
+                ]
+            );
+
+            const insertedId = result.insertId;
+            if (!rootId) {
+                rootId = insertedId;
+                await pool.execute(
+                    `UPDATE conversations
+                     SET root_conversation_id = ?
+                     WHERE id = ?`,
+                    [rootId, insertedId]
+                );
+            }
+
+            return res.json({
+                originalQuestion: userQuestion,
+                bestAnswer,
+                chosenModel: model,
+                modelsConsidered: [
+                    { model: "gpt-4o / gpt-4o-mini", answer: gptAnswer },
+                    { model: "gemini-2.5-flash", answer: geminiAnswer },
+                ],
+                rootConversationId: rootId,
+            });
+        } catch (err) {
+            console.error("Error in /api/chat-with-file:", err);
+            return res
+                .status(500)
+                .json({ error: "Server error while handling file." });
+        } finally {
+            // Cleanup temporary file
+            try {
+                fs.unlinkSync(filePath);
+            } catch (e) {
+                // ignore
+            }
+        }
+    }
+);
+
+
 
 // GET /api/history – list top-level threads
 app.get("/api/history", authMiddleware, async (req, res) => {
@@ -586,6 +930,52 @@ app.post("/auth/reset-password", async (req, res) => {
         res.status(500).json({ error: "Server error updating password." });
     }
 });
+async function getGptAnswerWithContext(question, contextText) {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+        return "OpenAI API key not configured yet.";
+    }
+
+    const systemPrompt =
+        "You are a helpful assistant. The user may provide extra text context from a file. " +
+        "Use that context plus the question to give a clear answer.";
+
+    const userContent = `
+QUESTION:
+${question}
+
+FILE CONTEXT (may be truncated):
+${contextText}
+    `.trim();
+
+    try {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                model: "gpt-4o-mini",
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userContent },
+                ],
+            }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            console.error("OpenAI (file) error:", data);
+            return `OpenAI error: ${data.error?.message || "unknown error"}`;
+        }
+
+        return data.choices?.[0]?.message?.content || "No answer from GPT.";
+    } catch (err) {
+        console.error("Error calling GPT with context:", err);
+        return "Error contacting GPT with file context.";
+    }
+}
 
 /* =========================== START ============================ */
 app.listen(PORT, () => {

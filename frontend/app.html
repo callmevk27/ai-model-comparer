@@ -84,16 +84,31 @@
 
                 <!-- Input area (like ChatGPT bottom bar) -->
                 <div class="chat-input-wrapper">
-                    <div class="chat-input-bar">
-                        <textarea id="question" rows="1" class="chat-input"
-                            placeholder="Message AI Model Judge..."></textarea>
-                        <button id="sendBtn" class="chat-send-btn btn-base" aria-label="Ask AI Judge"
-                            title="Ask AI Judge">
-                            ➜
-                        </button>
-                    </div>
-                    <p id="statusText" class="status chat-status"></p>
+                <div class="chat-input-bar">
+                    <button id="fileBtn" class="file-btn" type="button" title="Attach file or image">
+                        📎
+                    </button>
+                
+                    <!-- hidden real file input (all file types) -->
+                    <input id="fileInput" type="file" style="display:none" accept="*/*" />
+                
+                    <textarea id="question" rows="1" class="chat-input" placeholder="Send a message to AI Judge..."></textarea>
+                    <button id="sendBtn" class="chat-send-btn btn-base" aria-label="Ask AI Judge" title="Ask AI Judge">
+                        ➜
+                    </button>
                 </div>
+                
+                <!-- shows selected file name -->
+                <div id="fileBadge" class="file-badge hidden">
+                    <span class="file-badge-icon">📄</span>
+                    <span id="fileBadgeName" class="file-badge-name"></span>
+                    <button id="fileBadgeClear" class="file-badge-clear" type="button">✕</button>
+                </div>
+                
+                <p id="statusText" class="status chat-status"></p>
+
+                </div>
+
             </section>
         </main>
 
