@@ -1,4 +1,3 @@
-// backend/index.js
 console.log(">>> BACKEND START (threads + GPT + Gemini) <<<");
 
 require("dotenv").config({ path: "../.env" });
@@ -56,11 +55,8 @@ app.get("/api/health", (req, res) => {
     res.json({ status: "ok", message: "Backend is running!" });
 });
 
-/* ============================================================= */
-/*                AUTH: SIGNUP + EMAIL VERIFY                    */
-/* ============================================================= */
+/*=================AUTH: SIGNUP + EMAIL VERIFY==================*/
 
-// SIGNUP – create user (unverified) and send Gmail verification link
 app.post("/auth/signup", async (req, res) => {
     const { name, email, password } = req.body;
 
@@ -128,7 +124,6 @@ app.post("/auth/signup", async (req, res) => {
             process.env.BACKEND_BASE_URL || `http://localhost:${PORT}`;
         const verifyUrl = `${backendBase}/auth/verify-email?token=${token}`;
 
-        // send verification email (non-fatal if this fails)
         try {
             await sendVerificationEmail(emailTrimmed, trimmedName, verifyUrl);
         } catch (mailErr) {
@@ -198,7 +193,6 @@ app.get("/auth/verify-email", async (req, res) => {
 });
 
 /* ============================ LOGIN =========================== */
-// LOGIN – only allowed if email is verified, using password they set at signup
 app.post("/auth/login", async (req, res) => {
     const { email, password } = req.body;
 
@@ -260,9 +254,7 @@ app.post("/auth/login", async (req, res) => {
 });
 
 
-/* ============================================================= */
-/*                 GPT & GEMINI HELPERS                          */
-/* ============================================================= */
+/*=========================GPT & GEMINI HELPERS =========================*/
 
 async function getGptAnswer(question) {
     const apiKey = process.env.OPENAI_API_KEY;
@@ -359,9 +351,9 @@ function pickBestAnswer(gptAnswer, geminiAnswer) {
     return { bestAnswer: gpt, model: "gpt-4o-mini" };
 }
 
-/* ============================================================= */
-/*                    CHAT + THREADS                             */
-/* ============================================================= */
+
+/*=========================CHAT + THREADS==========================*/
+
 
 // POST /api/chat
 app.post("/api/chat", authMiddleware, async (req, res) => {
@@ -617,9 +609,7 @@ async function getGeminiVisionAnswer(question, mime, base64Image) {
     }
 }
 
-// ===================================================================
 // CHAT WITH FILE / IMAGE – GPT + GEMINI + JUDGE
-// ===================================================================
 app.post(
     "/api/chat-with-file",
     authMiddleware,
@@ -671,7 +661,6 @@ app.post(
                 ]);
             } else {
                 // ---------- OTHER FILE TYPES (pdf, docx, zip, etc.) ----------
-                // We don't read the raw content yet, but still let both models respond.
                 const contextText = `
 The user uploaded a file.
 

@@ -9,9 +9,7 @@ body {
     margin: 0;
     padding: 0;
     height: 100%;
-    /* full viewport height */
     overflow: hidden;
-    /* 🚫 no page scroll, only inner panels scroll */
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
         sans-serif;
     color: #e5e7eb;
@@ -160,7 +158,6 @@ body {
 .app-layout {
     min-height: 100vh;
     max-height: 100vh;
-    /* 🔒 lock to viewport height */
     display: flex;
     flex-direction: column;
     padding: 18px 32px 16px;
@@ -172,7 +169,6 @@ body {
     align-items: center;
     margin-bottom: 16px;
     flex-shrink: 0;
-    /* header never shrinks */
 }
 
 .app-brand h1 {
@@ -210,13 +206,11 @@ body {
 .app-main {
     flex: 1;
     min-height: 0;
-    /* 👈 allow inner scroll */
     display: grid;
     grid-template-columns: var(--chat-width, minmax(0, 2.3fr)) 5px var(--history-width, minmax(0, 1.2fr));
     gap: 0;
 }
 
-/* draggable divider between sidebar and chat */
 #drag-divider {
     width: 5px;
     cursor: col-resize;
@@ -235,14 +229,11 @@ body {
     flex-direction: column;
     padding: 14px 16px;
     min-height: 0;
-    /* 👈 this + flex:1 on chat-scroll gives internal scroll */
 }
 
-/* THIS is the only place where conversation scrolls */
 .chat-scroll {
     flex: 1;
     overflow-y: auto;
-    /* 👈 scroll only inside chat area */
     padding-right: 4px;
 }
 
@@ -255,7 +246,6 @@ body {
 .chat-input-wrapper {
     margin-top: 10px;
     flex-shrink: 0;
-    /* 👈 input bar stays visible, doesn't scroll away */
 }
 
 .chat-input-bar {
@@ -314,7 +304,6 @@ body {
     margin-bottom: 0;
 }
 
-/* Copy button (ChatGPT-style) */
 .copy-btn {
     border: none;
     border-radius: 999px;
@@ -348,7 +337,6 @@ body {
     opacity: 1;
 }
 
-/* ===== NEW CHAT BUTTON (ChatGPT-style) ===== */
 
 .new-chat-btn {
     display: inline-flex;
@@ -420,7 +408,6 @@ body {
     font-size: 12px;
     padding: 5px 12px;
 }
-/* ---------- FILE ATTACH BUTTON ---------- */
 
 .file-btn {
     border: none;
@@ -486,14 +473,12 @@ body {
 .history-list {
     flex: 1;
     overflow-y: auto;
-    /* 👈 sidebar scrolls independently */
 }
 
 .sidebar-footer {
     margin-top: 10px;
 }
 
-/* ------------ Q&A BLOCKS (ChatGPT-like flow + responsive width) ------------ */
 .qa-block {
     margin: 0 auto 18px;
     width: 100%;
@@ -512,18 +497,12 @@ body {
     border: 1px solid #60a5fa;
     color: #f9fafb;
 
-    /* 💬 make bubble size follow text length */
     display: inline-block;
     width: fit-content;
     max-width: 80%;
-    /* still wrap long messages */
     min-width: 60px;
-    /* tiny messages don’t look weird */
     white-space: normal;
-    /* allow wrapping across lines */
-
     margin-left: auto;
-    /* keep it right-aligned */
     transition:
         max-width 0.18s ease,
         width 0.18s ease;
@@ -608,7 +587,6 @@ body {
     font-weight: 600;
 }
 
-/* 👇 NEW: wrapper + header + copy button for each code block */
 .answer-code-wrapper {
     margin: 8px 0 10px;
 }
@@ -734,7 +712,6 @@ body {
     flex-shrink: 0;
 }
 
-/* ===== Floating Scroll-to-Bottom Button (ChatGPT style) ===== */
 .scroll-bottom-btn {
     position: absolute;
     right: 24px;
@@ -777,11 +754,8 @@ body {
 
 .chat-scroll {
     -ms-overflow-style: none;
-    /* IE/Edge */
     scrollbar-width: none;
-    /* Firefox */
 }
-/* ------- ChatGPT-like Headings inside AI answer ------- */
 .chat-text h2 {
     font-size: 20px;
     margin: 14px 0 6px;
@@ -803,7 +777,6 @@ body {
     color: #cbd5e1;
 }
 
-/* ------- ChatGPT-style Callout boxes ------- */
 .callout {
     padding: 10px 14px;
     border-radius: 10px;

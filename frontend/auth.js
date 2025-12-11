@@ -1,7 +1,5 @@
-// ====== CONFIG ======
 const API_BASE = "http://localhost:3000";
 
-// ====== DOM ELEMENTS ======
 const tabLogin = document.getElementById("tabLogin");
 const tabSignup = document.getElementById("tabSignup");
 
@@ -102,7 +100,6 @@ async function handleLogin() {
             return;
         }
 
-        // Save token + name/email
         localStorage.setItem("authToken", data.token);
         localStorage.setItem("userName", data.name);
         localStorage.setItem("userEmail", data.email);

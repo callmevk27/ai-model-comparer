@@ -1,6 +1,4 @@
-// ===========================
-// DOM ELEMENTS
-// ===========================
+
 const questionInput = document.getElementById("question");
 const sendBtn = document.getElementById("sendBtn");
 const statusText = document.getElementById("statusText");
@@ -30,9 +28,7 @@ let activeThreadId = null;
 // currently attached file
 let attachedFile = null;
 
-// ===========================
-// HELPER FUNCTIONS
-// ===========================
+
 
 function formatModelName(raw) {
     return (raw || "Unknown")
@@ -108,9 +104,6 @@ function scrollChatToBottom(smooth = true) {
     chatScroll.scrollTo({ top: chatScroll.scrollHeight, behavior });
 }
 
-// ---------------------
-// FILE BADGE HELPERS
-// ---------------------
 function updateFileBadge() {
     if (attachedFile) {
         const kb = Math.round(attachedFile.size / 1024);
@@ -128,9 +121,7 @@ function clearAttachedFile() {
     updateFileBadge();
 }
 
-// ===========================
-// APPEND MESSAGE BLOCK
-// ===========================
+
 function appendMessageBlock(question, answer, model, fileMeta) {
     if (!chatScroll) return;
     if (emptyState) emptyState.classList.add("hidden");
@@ -194,9 +185,8 @@ function appendMessageBlock(question, answer, model, fileMeta) {
     scrollChatToBottom(true);
 }
 
-// ===========================
 // ASYNC ACTIONS
-// ===========================
+
 async function askJudge() {
     const question = questionInput.value.trim();
     if (!question && !attachedFile) return;
@@ -251,9 +241,9 @@ async function askJudge() {
     }
 }
 
-// ===========================
+
 // DRAG TO RESIZE PANELS
-// ===========================
+
 if (dragDivider) {
     let isDragging = false;
     const root = document.documentElement;
@@ -291,9 +281,9 @@ if (dragDivider) {
     });
 }
 
-// ===========================
+
 // EVENT LISTENERS
-// ===========================
+
 if (sendBtn) sendBtn.addEventListener("click", askJudge);
 
 if (questionInput) {
@@ -333,9 +323,9 @@ if (logoutBtn) {
     });
 }
 
-// ===========================
+
 // SCROLL-TO-BOTTOM BUTTON
-// ===========================
+
 if (chatScroll && scrollBottomBtn) {
     chatScroll.addEventListener("scroll", () => {
         const dist = chatScroll.scrollHeight - chatScroll.scrollTop - chatScroll.clientHeight;
@@ -344,9 +334,8 @@ if (chatScroll && scrollBottomBtn) {
     scrollBottomBtn.addEventListener("click", () => scrollChatToBottom(true));
 }
 
-// ===========================
 // INIT APP
-// ===========================
+
 (function initApp() {
     const token = localStorage.getItem("authToken");
     if (!token) {
